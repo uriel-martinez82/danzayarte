@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { LOGO_BASE64 } from '@/lib/logo';
 
-export default function AdminLoginPage() {
+function LoginForm() {
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState<string | null>(null);
   const [loading,  setLoading]  = useState(false);
@@ -32,6 +32,26 @@ export default function AdminLoginPage() {
   }
 
   return (
+    <form onSubmit={handleSubmit}>
+      <label style={s.label}>Contraseña</label>
+      <input
+        type="password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        placeholder="Ingresá la contraseña"
+        autoFocus
+        style={s.input}
+      />
+      {error && <div style={s.error}>⚠ {error}</div>}
+      <button type="submit" style={s.btn} disabled={loading || !password}>
+        {loading ? 'Verificando…' : 'Ingresar →'}
+      </button>
+    </form>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
     <div style={s.page}>
       <div style={s.card}>
         <div style={s.header}>
@@ -39,22 +59,9 @@ export default function AdminLoginPage() {
           <h1 style={s.title}>Panel Admin</h1>
           <p style={s.sub}>Danza y Arte</p>
         </div>
-
-        <form onSubmit={handleSubmit}>
-          <label style={s.label}>Contraseña</label>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Ingresá la contraseña"
-            autoFocus
-            style={s.input}
-          />
-          {error && <div style={s.error}>⚠ {error}</div>}
-          <button type="submit" style={s.btn} disabled={loading || !password}>
-            {loading ? 'Verificando…' : 'Ingresar →'}
-          </button>
-        </form>
+        <Suspense fallback={<p style={{ textAlign: 'center', color: '#94a3b8' }}>Cargando…</p>}>
+          <LoginForm />
+        </Suspense>
       </div>
     </div>
   );
