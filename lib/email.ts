@@ -53,7 +53,7 @@ export async function enviarEmailAutorizacion(
 
     await Promise.all([
       resend.emails.send({ from: MAIL_FROM, to: responsable.email, subject, html }),
-      resend.emails.send({ from: MAIL_FROM, to: MAIL_ESCUELA, subject: `[Escuela] ${subject}`, html }),
+      resend.emails.send({ from: MAIL_FROM, to: [MAIL_ESCUELA, 'uriel.martinez.elias@gmail.com'], subject: `[Escuela] ${subject}`, html }),
     ]);
 
     return {};
