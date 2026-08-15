@@ -1,0 +1,48 @@
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; padding: 0; }
+
+/* ── Inputs inline del formulario: wrap en móvil ── */
+@media (max-width: 480px) {
+  /* Los inputs inline del texto de autorización */
+  input[type="text"] {
+    max-width: 100% !important;
+  }
+
+  /* Filas de 2 columnas → 1 columna en móvil */
+  div[style*="display: flex"][style*="gap: 12px"] {
+    flex-direction: column !important;
+  }
+}
+
+/* ── Vista de impresión del admin ── */
+@media print {
+  /* Ocultar controles */
+  .no-print { display: none !important; }
+
+  body { background: #fff !important; font-size: 11px; }
+
+  /* Tabla de admin limpia */
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+  .print-table th {
+    background: #e2e8f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    padding: 6px 8px;
+    text-align: left;
+    font-weight: 700;
+    border: 1px solid #cbd5e1;
+  }
+  .print-table td {
+    padding: 5px 8px;
+    border: 1px solid #e2e8f0;
+  }
+  .print-table tr:nth-child(even) td {
+    background: #f8fafc !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
