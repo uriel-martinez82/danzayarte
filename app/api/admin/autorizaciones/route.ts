@@ -33,8 +33,8 @@ export async function GET() {
 
   for (const row of data ?? []) {
     const key = `${row.alumno_id}-${row.responsable_id}`;
-    const alumno = row.alumnos as { nombre: string; apellido: string; dni: string };
-    const resp   = row.responsables as { nombre: string; apellido: string; dni: string; email: string };
+    const alumno = row.alumnos as unknown as { nombre: string; apellido: string; dni: string };
+    const resp   = row.responsables as unknown as { nombre: string; apellido: string; dni: string; email: string };
 
     if (!mapa.has(key)) {
       mapa.set(key, {

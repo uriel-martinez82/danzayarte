@@ -1,11 +1,6 @@
-import AuthorizationForm from '@/components/autorizacion/AuthorizationForm';
+import { redirect } from 'next/navigation';
 
-export const metadata = { title: 'Autorización – Danza y Arte' };
-
+// Redirigir a /autorizacion/1 por defecto
 export default function AutorizacionPage() {
-  return (
-    <main style={{ minHeight: '100vh', background: '#f5f3ff', padding: '20px 0' }}>
-      <AuthorizationForm />
-    </main>
-  );
+  redirect('/autorizacion/1');
 }
