@@ -9,7 +9,7 @@ export async function GET() {
       numero,
       alumno_id,
       responsable_id,
-      alumnos   ( nombre, apellido, dni ),
+      alumnos   ( nombre, apellido, dni, confirmado ),
       responsables ( nombre, apellido, dni, email )
     `)
     .order('created_at', { ascending: false });
@@ -29,11 +29,12 @@ export async function GET() {
     email: string;
     show1: boolean;
     show2: boolean;
+    confirmado: boolean;
   }>();
 
   for (const row of data ?? []) {
     const key = `${row.alumno_id}-${row.responsable_id}`;
-    const alumno = row.alumnos as unknown as { nombre: string; apellido: string; dni: string };
+    const alumno = row.alumnos as unknown as { nombre: string; apellido: string; dni: string; confirmado: boolean };
     const resp   = row.responsables as unknown as { nombre: string; apellido: string; dni: string; email: string };
 
     if (!mapa.has(key)) {
@@ -45,8 +46,9 @@ export async function GET() {
         resp_apellido:   resp.apellido,
         resp_dni:        resp.dni,
         email:           resp.email,
-        show1: false,
-        show2: false,
+        show1:      false,
+        show2:      false,
+        confirmado: alumno.confirmado ?? false,
       });
     }
 

@@ -12,6 +12,7 @@ interface Fila {
   email:           string;
   show1:           boolean;
   show2:           boolean;
+  confirmado:      boolean;
 }
 
 type Filtro = 'todos' | 'completos' | 'incompletos' | 'ninguno' | 'show1' | 'show2';
@@ -82,6 +83,7 @@ export default function AdminAutorizacionesPage() {
   const totalNinguno     = filas.filter(f => !f.show1 && !f.show2).length;
   const totalShow1       = filas.filter(f => f.show1).length;
   const totalShow2       = filas.filter(f => f.show2).length;
+  const totalConfirmados = filas.filter(f => f.confirmado).length;
 
   // Imprimir
   function imprimir() { window.print(); }
@@ -164,12 +166,13 @@ export default function AdminAutorizacionesPage() {
 
       {/* ── Contadores ── */}
       <div style={s.counters}>
-        <Counter label="Total alumnos"  value={filas.length}    color="#3730a3" />
-        <Counter label="Show 28 Nov"    value={totalShow1}      color="#0891b2" />
-        <Counter label="Show 6 Dic"     value={totalShow2}      color="#7c3aed" />
-        <Counter label="Ambos shows ✓"  value={totalCompletos}  color="#16a34a" />
+        <Counter label="Total alumnos"  value={filas.length}     color="#3730a3" />
+        <Counter label="Show 28 Nov"    value={totalShow1}       color="#0891b2" />
+        <Counter label="Show 6 Dic"     value={totalShow2}       color="#7c3aed" />
+        <Counter label="Ambos shows ✓"  value={totalCompletos}   color="#16a34a" />
         <Counter label="Incompletos ⚠"  value={totalIncompletos} color="#d97706" />
-        <Counter label="Sin firmar ✗"   value={totalNinguno}    color="#dc2626" />
+        <Counter label="Sin firmar ✗"   value={totalNinguno}     color="#dc2626" />
+        <Counter label="Confirmados ✓"  value={totalConfirmados} color="#0f766e" />
       </div>
 
       {/* ── Barra de progreso ── */}
@@ -242,7 +245,7 @@ export default function AdminAutorizacionesPage() {
               <Th>Email</Th>
               <Th center>Show 28 Nov</Th>
               <Th center>Show 6 Dic</Th>
-              <Th center>Estado</Th>
+              <Th center>Confirmado</Th>
             </tr>
           </thead>
           <tbody>
@@ -264,7 +267,7 @@ export default function AdminAutorizacionesPage() {
                 <Td muted small>{f.email}</Td>
                 <Td center><Check ok={f.show1} /></Td>
                 <Td center><Check ok={f.show2} /></Td>
-                <Td center><EstadoBadge estado={estadoFila(f)} /></Td>
+                <Td center><Check ok={f.confirmado} /></Td>
               </tr>
             ))}
           </tbody>
