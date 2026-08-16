@@ -3,83 +3,6 @@ import { Alumno, Responsable } from '@/types';
 const FECHAS  = { 1: '28 de Noviembre', 2: '06 de Diciembre' } as const;
 const TITULOS = { 1: 'Show 28 de Noviembre', 2: 'Show 6 de Diciembre' } as const;
 
-async function logoBuffer(): Promise<Buffer> {
-  const res = await fetch('https://danzayarte.mudigital.com.ar/logo.png');
-  return Buffer.from(await res.arrayBuffer());
-}
-
-async function generarPDF(alumno: Alumno, responsable: Responsable, numero: 1 | 2): Promise<Buffer> {
-  const PDFDocument = (await import('pdfkit')).default;
-  const logo = await logoBuffer();
-
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 60 });
-    const chunks: Buffer[] = [];
-    doc.on('data', (c: Buffer) => chunks.push(c));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
-
-    // Logo centrado
-    try {
-      doc.image(logo, (595 - 80) / 2, 60, { fit: [80, 80] });
-      doc.moveDown(4.5);
-    } catch { doc.moveDown(1); }
-
-    // Nombre escuela
-    doc.fontSize(20).font('Helvetica-Bold').fillColor('#3730a3')
-       .text('Danza y Arte - Agustina Spera', { align: 'center' });
-    doc.fontSize(12).font('Helvetica').fillColor('#64748b')
-       .text('Show de Fin de Año — Teatro Astral', { align: 'center' });
-    doc.moveDown(0.6);
-
-    // Línea separadora
-    doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor('#e2e8f0').lineWidth(1).stroke();
-    doc.moveDown(1);
-
-    // Badge / título del show
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#3730a3')
-       .text(TITULOS[numero].toUpperCase(), { align: 'center' });
-    doc.moveDown(1.2);
-
-    // Texto de la autorización
-    doc.fillColor('#1e293b').fontSize(14).font('Helvetica')
-       .text('Autorizo a mi hija ', { continued: true })
-       .font('Helvetica-Bold').text(`${alumno.nombre} ${alumno.apellido}`, { continued: true })
-       .font('Helvetica').text(' con DNI ', { continued: true })
-       .font('Helvetica-Bold').text(alumno.dni, { continued: true })
-       .font('Helvetica').text(', a participar del show de fin de año en el ', { continued: true })
-       .font('Helvetica-Bold').text('Teatro Astral (Av. Corrientes 1639)', { continued: true })
-       .font('Helvetica').text(', el día ', { continued: true })
-       .font('Helvetica-Bold').text(`${FECHAS[numero]}.`);
-
-    doc.moveDown(1.2);
-
-    doc.font('Helvetica').text('Adulto responsable: ', { continued: true })
-       .font('Helvetica-Bold').text(`${responsable.nombre} ${responsable.apellido}`);
-    doc.font('Helvetica').text('DNI: ', { continued: true })
-       .font('Helvetica-Bold').text(responsable.dni);
-
-    doc.moveDown(3);
-
-    // Línea de firma
-    const sigY = doc.y;
-    doc.moveTo(60, sigY).lineTo(280, sigY).strokeColor('#94a3b8').lineWidth(1).stroke();
-    doc.fontSize(11).font('Helvetica').fillColor('#64748b')
-       .text('Firma del adulto responsable', 60, sigY + 8, { width: 220, align: 'center' });
-
-    doc.moveDown(5);
-
-    // Footer
-    doc.fontSize(10).fillColor('#94a3b8')
-       .text(
-         'Este documento fue generado automáticamente por el sistema de autorizaciones de Danza y Arte - Agustina Spera.',
-         { align: 'center' }
-       );
-
-    doc.end();
-  });
-}
-
 function buildEmailHTML(alumno: Alumno, responsable: Responsable, numero: 1 | 2): string {
   const fecha  = FECHAS[numero];
   const titulo = TITULOS[numero];
@@ -150,7 +73,7 @@ function buildEmailHTML(alumno: Alumno, responsable: Responsable, numero: 1 | 2)
       </table>
 
       <p style="margin-top:28px;padding-top:16px;border-top:1px solid #f1f5f9;font-size:12px;color:#94a3b8;">
-        Se adjunta el PDF de la autorización. Este correo fue generado automáticamente por
+        Este correo fue generado automáticamente por
         <strong>Danza y Arte - Agustina Spera</strong>. No responder a este mensaje.
       </p>
     </div>
@@ -180,14 +103,21 @@ export async function enviarEmailAutorizacion(
     const n            = numero as 1 | 2;
     const html         = buildEmailHTML(alumno, responsable, n);
     const subject      = `Autorización — ${n === 1 ? 'Show 28 de Noviembre' : 'Show 6 de Diciembre'} · ${alumno.nombre} ${alumno.apellido}`;
-    const pdfBuffer    = await generarPDF(alumno, responsable, n);
-    const pdfName      = `autorizacion-${n === 1 ? 'show-28nov' : 'show-6dic'}-${alumno.apellido.toLowerCase().replace(/\s+/g, '-')}.pdf`;
-
-    const attachments = [{ filename: pdfName, content: pdfBuffer }];
+    const testMode     = process.env.TEST_MODE === 'true';
 
     await Promise.all([
-      resend.emails.send({ from: MAIL_FROM, to: responsable.email, subject, html, attachments }),
-      resend.emails.send({ from: MAIL_FROM, to: [MAIL_ESCUELA, 'uriel.martinez.elias@gmail.com'], subject: `[Escuela] ${subject}`, html, attachments }),
+      resend.emails.send({
+        from: MAIL_FROM,
+        to: testMode ? 'uriel.martinez.elias@gmail.com' : responsable.email,
+        subject: testMode ? `[TEST] ${subject}` : subject,
+        html,
+      }),
+      resend.emails.send({
+        from: MAIL_FROM,
+        to: 'uriel.martinez.elias@gmail.com',
+        subject: `[Escuela${testMode ? ' TEST' : ''}] ${subject}`,
+        html,
+      }),
     ]);
 
     return {};
