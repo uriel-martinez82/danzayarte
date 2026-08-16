@@ -48,7 +48,7 @@ async function generarPDF(alumno: Alumno, responsable: Responsable, numero: 1 | 
 
     // Texto de la autorización
     doc.fillColor('#1e293b').fontSize(14).font('Helvetica')
-       .text('Autorizo a mi hija ', { continued: true })
+       .text('Autorizo a mi hija/o ', { continued: true })
        .font('Helvetica-Bold').text(`${alumno.nombre} ${alumno.apellido}`, { continued: true })
        .font('Helvetica').text(' con DNI ', { continued: true })
        .font('Helvetica-Bold').text(alumno.dni, { continued: true })
@@ -64,15 +64,7 @@ async function generarPDF(alumno: Alumno, responsable: Responsable, numero: 1 | 
     doc.font('Helvetica').text('DNI: ', { continued: true })
        .font('Helvetica-Bold').text(responsable.dni);
 
-    doc.moveDown(3);
-
-    // Línea de firma
-    const sigY = doc.y;
-    doc.moveTo(60, sigY).lineTo(280, sigY).strokeColor('#94a3b8').lineWidth(1).stroke();
-    doc.fontSize(11).font('Helvetica').fillColor('#64748b')
-       .text('Firma del adulto responsable', 60, sigY + 8, { width: 220, align: 'center' });
-
-    doc.moveDown(5);
+    doc.moveDown(4);
 
     // Footer
     doc.fontSize(10).fillColor('#94a3b8')
@@ -114,7 +106,7 @@ function buildEmailHTML(alumno: Alumno, responsable: Responsable, numero: 1 | 2)
 
       <!-- Texto de la autorización -->
       <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:24px 28px;margin-bottom:28px;font-family:Georgia,serif;font-size:15px;line-height:2.2;color:#1e293b;">
-        Autorizo a mi hija <strong>${alumno.nombre} ${alumno.apellido}</strong> con DNI <strong>${alumno.dni}</strong>,
+        Autorizo a mi hija/o <strong>${alumno.nombre} ${alumno.apellido}</strong> con DNI <strong>${alumno.dni}</strong>,
         a participar del show de fin de año en el <strong>Teatro Astral (Av. Corrientes 1639)</strong>,
         el día <strong>${fecha}</strong>.
         <br/><br/>
