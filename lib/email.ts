@@ -20,7 +20,7 @@ async function generarPDF(alumno: Alumno, responsable: Responsable, numero: 1 | 
 
     // Logo centrado
     try {
-      doc.image(logoBuffer(), (595 - 80) / 2, 60, { fit: [80, 80] });
+      doc.image(await logoBuffer(), (595 - 80) / 2, 60, { fit: [80, 80] });
       doc.moveDown(4.5);
     } catch { doc.moveDown(1); }
 
