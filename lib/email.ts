@@ -180,27 +180,32 @@ export async function enviarEmailAutorizacion(
     const n            = numero as 1 | 2;
     const html         = buildEmailHTML(alumno, responsable, n);
     const subject      = `Autorización — ${n === 1 ? 'Show 28 de Noviembre' : 'Show 6 de Diciembre'} · ${alumno.nombre} ${alumno.apellido}`;
-    const pdfBuffer    = await generarPDF(alumno, responsable, n);
-    const pdfName      = `autorizacion-${n === 1 ? 'show-28nov' : 'show-6dic'}-${alumno.apellido.toLowerCase().replace(/\s+/g, '-')}.pdf`;
+    // const pdfBuffer    = await generarPDF(alumno, responsable, n);
+    // const pdfName      = `autorizacion-${n === 1 ? 'show-28nov' : 'show-6dic'}-${alumno.apellido.toLowerCase().replace(/\s+/g, '-')}.pdf`;
 
-    const attachments = [{ filename: pdfName, content: pdfBuffer }];
+    // const attachments = [{ filename: pdfName, content: pdfBuffer }];
     const testMode = process.env.TEST_MODE === 'true';
 
+    // await Promise.all([
+    //   resend.emails.send({
+    //     from: MAIL_FROM,
+    //     to: testMode ? 'uriel.martinez.elias@gmail.com' : responsable.email,
+    //     subject: testMode ? `[TEST] ${subject}` : subject,
+    //     html,
+    //     attachments,
+    //   }),
+    //   resend.emails.send({
+    //     from: MAIL_FROM,
+    //     to: 'uriel.martinez.elias@gmail.com',
+    //     subject: `[Escuela${testMode ? ' TEST' : ''}] ${subject}`,
+    //     html,
+    //     attachments,
+    //   }),
+    // ]);
+
     await Promise.all([
-      resend.emails.send({
-        from: MAIL_FROM,
-        to: testMode ? 'uriel.martinez.elias@gmail.com' : responsable.email,
-        subject: testMode ? `[TEST] ${subject}` : subject,
-        html,
-        attachments,
-      }),
-      resend.emails.send({
-        from: MAIL_FROM,
-        to: 'uriel.martinez.elias@gmail.com',
-        subject: `[Escuela${testMode ? ' TEST' : ''}] ${subject}`,
-        html,
-        attachments,
-      }),
+      resend.emails.send({ from: MAIL_FROM, to: 'uriel.martinez.elias@gmail.com', subject: `[TEST] ${subject}`, html }),
+      resend.emails.send({ from: MAIL_FROM, to: 'uriel.martinez.elias@gmail.com', subject: `[Escuela TEST] ${subject}`, html }),
     ]);
 
     return {};
