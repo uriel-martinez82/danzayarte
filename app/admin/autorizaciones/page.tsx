@@ -150,6 +150,9 @@ export default function AdminAutorizacionesPage() {
           <button onClick={imprimir} style={s.btnPrint} disabled={loading || filtradas.length === 0} className="no-print">
             🖨 Imprimir
           </button>
+          <button onClick={async () => { await fetch('/api/admin/login', { method: 'DELETE' }); window.location.href = '/admin/login'; }} style={s.btnSalir} className="no-print">
+            Salir
+          </button>
         </div>
       </div>
 
@@ -376,6 +379,10 @@ const s: Record<string, React.CSSProperties> = {
   btnPrint: {
     padding: '9px 16px', background: '#fff', color: '#475569',
     border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+  },
+  btnSalir: {
+    padding: '9px 16px', background: '#fef2f2', color: '#b91c1c',
+    border: '1.5px solid #fca5a5', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   counters: {
     display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap',
