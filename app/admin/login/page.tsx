@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { LOGO_BASE64 } from '@/lib/logo';
 
 function LoginForm() {
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState<string | null>(null);
   const [loading,  setLoading]  = useState(false);
@@ -19,7 +20,7 @@ function LoginForm() {
       const res  = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, from }),
+        body: JSON.stringify({ email, password, from }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
@@ -33,17 +34,25 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit}>
+      <label style={s.label}>Email</label>
+      <input
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="tu@email.com"
+        autoFocus
+        style={s.input}
+      />
       <label style={s.label}>Contraseña</label>
       <input
         type="password"
         value={password}
         onChange={e => setPassword(e.target.value)}
         placeholder="Ingresá la contraseña"
-        autoFocus
         style={s.input}
       />
       {error && <div style={s.error}>⚠ {error}</div>}
-      <button type="submit" style={s.btn} disabled={loading || !password}>
+      <button type="submit" style={s.btn} disabled={loading || !email || !password}>
         {loading ? 'Verificando…' : 'Ingresar →'}
       </button>
     </form>
@@ -57,7 +66,7 @@ export default function AdminLoginPage() {
         <div style={s.header}>
           <img src={LOGO_BASE64} alt="Danza y Arte" style={s.logo} />
           <h1 style={s.title}>Panel Admin</h1>
-          <p style={s.sub}>Danza y Arte</p>
+          <p style={s.sub}>Danza y Arte - Agustina Spera</p>
         </div>
         <Suspense fallback={<p style={{ textAlign: 'center', color: '#94a3b8' }}>Cargando…</p>}>
           <LoginForm />

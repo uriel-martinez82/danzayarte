@@ -9,11 +9,17 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const password = process.env.ADMIN_PASSWORD || 'admin123';
-  const cookie   = request.cookies.get('dya_admin_auth');
+  const ADMIN_SECRET = process.env.ADMIN_SECRET ?? 'fallback-secret-change-me';
+  const cookie = request.cookies.get('dya_admin_auth');
 
-  if (cookie && cookie.value === password) {
-    return NextResponse.next();
+  if (cookie?.value) {
+    try {
+      const decoded = Buffer.from(cookie.value, 'base64').toString('utf8');
+      const parts   = decoded.split('|');
+      if (parts.length === 3 && parts[2] === ADMIN_SECRET) {
+        return NextResponse.next();
+      }
+    } catch { /* cookie inválida */ }
   }
 
   const url = request.nextUrl.clone();
