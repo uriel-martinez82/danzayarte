@@ -10,6 +10,7 @@ async function logoBuffer(): Promise<Buffer> {
 
 async function generarPDF(alumno: Alumno, responsable: Responsable, numero: 1 | 2): Promise<Buffer> {
   const PDFDocument = (await import('pdfkit')).default;
+  const logo = await logoBuffer();
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 60 });
@@ -20,7 +21,7 @@ async function generarPDF(alumno: Alumno, responsable: Responsable, numero: 1 | 
 
     // Logo centrado
     try {
-      doc.image(await logoBuffer(), (595 - 80) / 2, 60, { fit: [80, 80] });
+      doc.image(logo, (595 - 80) / 2, 60, { fit: [80, 80] });
       doc.moveDown(4.5);
     } catch { doc.moveDown(1); }
 
