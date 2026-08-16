@@ -1,12 +1,11 @@
 import { Alumno, Responsable } from '@/types';
-import { LOGO_BASE64 } from '@/lib/logo';
 
 const FECHAS  = { 1: '28 de Noviembre', 2: '06 de Diciembre' } as const;
 const TITULOS = { 1: 'Show 28 de Noviembre', 2: 'Show 6 de Diciembre' } as const;
 
-function logoBuffer(): Buffer {
-  const data = LOGO_BASE64.replace(/^data:image\/\w+;base64,/, '');
-  return Buffer.from(data, 'base64');
+async function logoBuffer(): Promise<Buffer> {
+  const res = await fetch('https://danzayarte.mudigital.com.ar/logo.png');
+  return Buffer.from(await res.arrayBuffer());
 }
 
 async function generarPDF(alumno: Alumno, responsable: Responsable, numero: 1 | 2): Promise<Buffer> {
@@ -92,10 +91,10 @@ function buildEmailHTML(alumno: Alumno, responsable: Responsable, numero: 1 | 2)
   <div style="max-width:620px;margin:32px auto;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);">
 
     <!-- Header -->
-    <div style="background:#3730a3;padding:32px 40px;text-align:center;">
-      <img src="${LOGO_BASE64}" alt="Danza y Arte" style="height:70px;width:auto;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;"/>
-      <h1 style="color:#fff;margin:0 0 4px;font-size:22px;font-weight:800;">Danza y Arte - Agustina Spera</h1>
-      <p style="color:#c7d2fe;margin:0;font-size:13px;">Show de Fin de Año — Teatro Astral</p>
+    <div style="background:#ffffff;padding:32px 40px;text-align:center;border-bottom:2px solid #e0e7ff;">
+      <img src="https://danzayarte.mudigital.com.ar/logo.png" alt="Danza y Arte" style="height:70px;width:auto;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;"/>
+      <h1 style="color:#0f172a;margin:0 0 4px;font-size:22px;font-weight:800;">Danza y Arte - Agustina Spera</h1>
+      <p style="color:#64748b;margin:0;font-size:13px;">Show de Fin de Año — Teatro Astral</p>
     </div>
 
     <!-- Body -->
@@ -180,32 +179,14 @@ export async function enviarEmailAutorizacion(
     const n            = numero as 1 | 2;
     const html         = buildEmailHTML(alumno, responsable, n);
     const subject      = `Autorización — ${n === 1 ? 'Show 28 de Noviembre' : 'Show 6 de Diciembre'} · ${alumno.nombre} ${alumno.apellido}`;
-    // const pdfBuffer    = await generarPDF(alumno, responsable, n);
-    // const pdfName      = `autorizacion-${n === 1 ? 'show-28nov' : 'show-6dic'}-${alumno.apellido.toLowerCase().replace(/\s+/g, '-')}.pdf`;
+    const pdfBuffer    = await generarPDF(alumno, responsable, n);
+    const pdfName      = `autorizacion-${n === 1 ? 'show-28nov' : 'show-6dic'}-${alumno.apellido.toLowerCase().replace(/\s+/g, '-')}.pdf`;
 
-    // const attachments = [{ filename: pdfName, content: pdfBuffer }];
-    const testMode = process.env.TEST_MODE === 'true';
-
-    // await Promise.all([
-    //   resend.emails.send({
-    //     from: MAIL_FROM,
-    //     to: testMode ? 'uriel.martinez.elias@gmail.com' : responsable.email,
-    //     subject: testMode ? `[TEST] ${subject}` : subject,
-    //     html,
-    //     attachments,
-    //   }),
-    //   resend.emails.send({
-    //     from: MAIL_FROM,
-    //     to: 'uriel.martinez.elias@gmail.com',
-    //     subject: `[Escuela${testMode ? ' TEST' : ''}] ${subject}`,
-    //     html,
-    //     attachments,
-    //   }),
-    // ]);
+    const attachments = [{ filename: pdfName, content: pdfBuffer }];
 
     await Promise.all([
-      resend.emails.send({ from: MAIL_FROM, to: 'uriel.martinez.elias@gmail.com', subject: `[TEST] ${subject}`, html }),
-      resend.emails.send({ from: MAIL_FROM, to: 'uriel.martinez.elias@gmail.com', subject: `[Escuela TEST] ${subject}`, html }),
+      resend.emails.send({ from: MAIL_FROM, to: responsable.email, subject, html, attachments }),
+      resend.emails.send({ from: MAIL_FROM, to: [MAIL_ESCUELA, 'uriel.martinez.elias@gmail.com'], subject: `[Escuela] ${subject}`, html, attachments }),
     ]);
 
     return {};
