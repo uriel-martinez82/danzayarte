@@ -41,8 +41,18 @@ export default function TurnosReservarPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function refrescarSlots() {
+    try {
+      const r = await fetch('/api/turnos/slots');
+      if (r.ok) {
+        const data = await r.json();
+        setDatos(data);
+      }
+    } catch { /* silencioso */ }
+  }
+
   async function confirmarReserva() {
-    if (!selected) return;
+    if (!selected || booking) return;
     setBooking(true);
     setError(null);
     try {
@@ -52,7 +62,14 @@ export default function TurnosReservarPage() {
         body: JSON.stringify(selected),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        // Si el slot se llenó justo ahora, refrescamos la lista y limpiamos la selección
+        if (data.slotLleno) {
+          setSelected(null);
+          await refrescarSlots();
+        }
+        throw new Error(data.error ?? 'Error al reservar.');
+      }
       if (datos) setDatos({ ...datos, miReserva: selected });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al reservar.');

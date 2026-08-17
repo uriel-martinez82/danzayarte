@@ -67,12 +67,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Este turno ya no tiene lugares. Elegí otro horario.' }, { status: 409 });
   }
 
-  // Insertar reserva
+  // Insertar reserva (el trigger de DB garantiza atomicidad)
   const { error: insertError } = await supabaseAdmin
     .from('reservas')
     .insert({ alumno_id: alumno.id, show_numero: showNumero, fecha, hora });
 
   if (insertError) {
+    // Unique constraint: alumno ya tiene turno en este show
+    if (insertError.code === '23505') {
+      return NextResponse.json({ error: 'Ya tenés un turno reservado para este show.', slotLleno: false }, { status: 409 });
+    }
+    // Trigger: slot llegó a capacidad máxima entre el chequeo y el insert
+    if (insertError.message?.includes('Slot completo') || insertError.message?.includes('slot completo')) {
+      return NextResponse.json({ error: 'Este horario se llenó justo ahora. Elegí otro.', slotLleno: true }, { status: 409 });
+    }
+    console.error('[reservar] insertError:', insertError);
     return NextResponse.json({ error: 'Error al reservar. Intentá de nuevo.' }, { status: 500 });
   }
 
