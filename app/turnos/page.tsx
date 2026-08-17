@@ -4,7 +4,7 @@ import { useState, FormEvent } from 'react';
 import { LOGO_BASE64 } from '@/lib/logo';
 import { PUBLIC_CSS } from '@/lib/public-page-css';
 
-export default function VerificacionPage() {
+export default function TurnosPage() {
   const [dni,      setDni]      = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -16,7 +16,7 @@ export default function VerificacionPage() {
     setError(null);
     setLoading(true);
     try {
-      const res  = await fetch('/api/verificacion/login', {
+      const res = await fetch('/api/turnos/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dni: dni.trim(), password }),
@@ -47,16 +47,16 @@ export default function VerificacionPage() {
               </div>
             </div>
             <h1 className="pub-title">Danza y Arte</h1>
-            <p className="pub-sub">Agustina Spera — Show de Fin de Año</p>
+            <p className="pub-sub">Agustina Spera — Turnos Show de Fin de Año</p>
           </div>
 
           <div className="pub-badge-row">
-            <span className="pub-badge pub-badge-purple">🎭 Teatro Astral</span>
-            <span className="pub-badge pub-badge-pink">✨ Confirmación de datos</span>
+            <span className="pub-badge pub-badge-purple">🎟️ Reserva de turno</span>
+            <span className="pub-badge pub-badge-pink">🎭 Show 2026</span>
           </div>
 
           <div className="pub-info">
-            <p>Verificá y confirmá los datos personales de tu hija/o para el Show de Fin de Año en el <strong>Teatro Astral</strong>.</p>
+            <p>Ingresá con el DNI del alumno/a para elegir el turno para el <strong>Show de Fin de Año</strong>. Necesitás la clave <strong>show2026</strong>.</p>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -78,7 +78,7 @@ export default function VerificacionPage() {
                   type={showPass ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Ingresá la contraseña"
+                  placeholder="show2026"
                   autoComplete="new-password"
                   className="pub-input"
                   style={{ paddingRight: 44 }}

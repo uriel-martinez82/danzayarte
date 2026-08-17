@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email o contraseña incorrectos.' }, { status: 401 });
   }
 
-  const redirectTo = from && from.startsWith('/admin') ? from : '/admin/autorizaciones';
+  const redirectTo = from && from.startsWith('/admin') && from !== '/admin/login' ? from : '/admin';
   const res = NextResponse.json({ ok: true, redirect: redirectTo });
 
   res.cookies.set(COOKIE_NAME, buildCookieValue(usuario.email, usuario.role), {
