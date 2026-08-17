@@ -359,10 +359,10 @@ export default function AdminTurnosPage() {
                           <div className="tn-reservas-list">
                             {slotReservas.map(r => (
                               <div key={r.id} className="tn-reserva-row">
-                                <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', flex: 1 }}>
+                                <span className="tn-reserva-nombre">
                                   {r.alumnos?.apellido}, {r.alumnos?.nombre}
                                 </span>
-                                <span style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace', marginRight: 8 }}>
+                                <span className="tn-reserva-dni" style={{ marginRight: 8 }}>
                                   {r.alumnos?.dni}
                                 </span>
                                 <button title="Editar titular" onClick={() => { setModalError(null); setModalEdit(r); }} className="tn-icon-btn">
