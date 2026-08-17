@@ -1,8 +1,3 @@
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-const MAIL_FROM = process.env.MAIL_FROM ?? 'noreply@danzayarte.mudigital.com.ar';
-
 const SHOW_LABELS: Record<number, string> = {
   1: '28 de noviembre',
   2: '6 de diciembre',
@@ -32,7 +27,6 @@ async function generarPDF(params: {
   fecha: string;
   hora: number;
 }): Promise<Buffer> {
-  // Dynamic import — evita errores con módulos nativos en Next.js serverless
   const PDFDocument = (await import('pdfkit')).default;
 
   const logo = await logoBuffer();
@@ -45,12 +39,10 @@ async function generarPDF(params: {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Logo
     if (logo) {
       try { doc.image(logo, 50, 45, { width: 65 }); } catch { /* sin logo */ }
     }
 
-    // Título
     doc.fontSize(20).font('Helvetica-Bold').fillColor('#1a1a2e')
        .text('Turno Confirmado', 130, 50);
     doc.fontSize(11).font('Helvetica').fillColor('#666666')
@@ -62,10 +54,10 @@ async function generarPDF(params: {
        .text('Comprobante de reserva de turno', 50, 132);
 
     const filas = [
-      ['Alumno/a',         `${alumnoNombre} ${alumnoApellido}`],
-      ['Show',             `Show de Fin de Año — ${SHOW_LABELS[showNumero] ?? ''}`],
-      ['Fecha del turno',  DIA_LABELS[fecha] ?? fecha],
-      ['Horario',          `${hora}:00 hs`],
+      ['Alumno/a',        `${alumnoNombre} ${alumnoApellido}`],
+      ['Show',            `Show de Fin de Año — ${SHOW_LABELS[showNumero] ?? ''}`],
+      ['Fecha del turno', DIA_LABELS[fecha] ?? fecha],
+      ['Horario',         `${hora}:00 hs`],
     ];
 
     let y = 166;
@@ -76,7 +68,6 @@ async function generarPDF(params: {
     }
 
     doc.moveTo(50, y + 12).lineTo(545, y + 12).strokeColor('#e0e0e0').stroke();
-
     doc.fontSize(10).font('Helvetica').fillColor('#888888')
        .text('Presentá este comprobante el día de tu turno.', 50, y + 26);
     doc.fontSize(10).fillColor('#888888')
@@ -94,36 +85,43 @@ export async function enviarEmailTurno(params: {
   fecha: string;
   hora: number;
 }) {
+  // Guard igual que email.ts
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[email-turno] RESEND_API_KEY no configurada — mail no enviado.');
+    return;
+  }
+
+  const { Resend } = await import('resend');
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  const MAIL_FROM    = process.env.MAIL_FROM ?? 'noreply@danzayarte.mudigital.com.ar';
+  const testMode     = process.env.TEST_MODE === 'true';
+  const INTERNAL     = 'uriel.martinez.elias@gmail.com';
+  const MAIL_ESCUELA = process.env.MAIL_ESCUELA ?? INTERNAL;
+
   const { emailDestinatario, alumnoNombre, alumnoApellido, showNumero, fecha, hora } = params;
 
   const showLabel  = SHOW_LABELS[showNumero] ?? '';
   const fechaLabel = DIA_LABELS[fecha] ?? fecha;
   const subject    = `Danza y Arte - Agustina Spera | Turno reservado · ${alumnoNombre} ${alumnoApellido}`;
 
-  const html = `
-<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f4f6fb;font-family:system-ui,Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:32px 0;">
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:600px;width:100%;">
-
-      <!-- Header blanco con logo -->
       <tr><td style="background:#ffffff;padding:28px 40px 20px;text-align:center;border-bottom:1px solid #f0f0f0;">
         <img src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://danzayarte.mudigital.com.ar'}/logo.png"
              alt="Danza y Arte" style="height:64px;width:auto;display:block;margin:0 auto 10px;" />
         <p style="margin:0;font-size:13px;color:#888;">Danza y Arte - Agustina Spera</p>
       </td></tr>
-
-      <!-- Cuerpo -->
       <tr><td style="padding:32px 40px;">
         <h2 style="margin:0 0 6px;font-size:22px;color:#1a1a2e;">🎟️ ¡Turno confirmado!</h2>
         <p style="margin:0 0 24px;font-size:15px;color:#444;">
           Hola <strong>${alumnoNombre}</strong>, tu turno para el Show del <strong>${showLabel}</strong> fue reservado correctamente.
         </p>
-
-        <!-- Detalle del turno -->
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;">
           <tr>
             <td style="padding:8px 0;font-size:13px;font-weight:700;color:#64748b;width:140px;">Alumno/a</td>
@@ -142,17 +140,13 @@ export async function enviarEmailTurno(params: {
             <td style="padding:8px 0;font-size:14px;font-weight:700;color:#3730a3;">${hora}:00 hs</td>
           </tr>
         </table>
-
         <p style="margin:0;font-size:14px;color:#475569;">
           Encontrás el comprobante adjunto en este mail. Presentalo el día del turno.
         </p>
       </td></tr>
-
-      <!-- Footer -->
       <tr><td style="background:#f8fafc;padding:18px 40px;text-align:center;border-top:1px solid #f0f0f0;">
         <p style="margin:0;font-size:12px;color:#94a3b8;">Danza y Arte - Agustina Spera</p>
       </td></tr>
-
     </table>
   </td></tr>
 </table>
@@ -160,23 +154,20 @@ export async function enviarEmailTurno(params: {
 </html>`;
 
   const pdfBuffer = await generarPDF({ alumnoNombre, alumnoApellido, showNumero, fecha, hora });
-  const attachments = [{
-    filename: `turno_${alumnoApellido.toLowerCase()}_danzayarte.pdf`,
-    content: pdfBuffer.toString('base64'),
-  }];
 
-  const testMode     = process.env.TEST_MODE === 'true';
-  const INTERNAL     = 'uriel.martinez.elias@gmail.com';
-  const MAIL_ESCUELA = process.env.MAIL_ESCUELA ?? INTERNAL;
+  // content como Buffer — igual que email.ts
+  const attachments = [{
+    filename: `turno_${alumnoApellido.toLowerCase().replace(/\s+/g, '-')}_danzayarte.pdf`,
+    content:  pdfBuffer,
+  }];
 
   const envios: Promise<unknown>[] = [];
 
-  // Email al responsable (solo si tiene email registrado)
   const destinatarioFinal = testMode ? INTERNAL : emailDestinatario;
   if (destinatarioFinal) {
     envios.push(resend.emails.send({
       from: MAIL_FROM,
-      to: destinatarioFinal,
+      to:   destinatarioFinal,
       subject: testMode ? `[TEST] ${subject}` : subject,
       html,
       attachments,
@@ -186,7 +177,7 @@ export async function enviarEmailTurno(params: {
   // Copia interna — siempre
   envios.push(resend.emails.send({
     from: MAIL_FROM,
-    to: testMode ? INTERNAL : MAIL_ESCUELA,
+    to:   testMode ? INTERNAL : MAIL_ESCUELA,
     subject: testMode
       ? `[TEST Escuela] ${subject}`
       : emailDestinatario
