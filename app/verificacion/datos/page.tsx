@@ -29,17 +29,19 @@ export default function VerificacionDatosPage() {
 
   useEffect(() => {
     fetch('/api/verificacion/datos')
-      .then(r => {
+      .then(async r => {
         if (r.status === 401) { window.location.href = '/verificacion'; return null; }
-        return r.json();
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? `Error ${r.status}`);
+        return data;
       })
       .then(data => {
         if (!data) return;
         setAlumno(data.alumno);
         setResponsable(data.responsable);
-        setConfirmado(data.alumno.confirmado);
+        setConfirmado(data.alumno?.confirmado ?? false);
       })
-      .catch(() => setError('Error al cargar los datos.'))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Error al cargar los datos.'))
       .finally(() => setLoading(false));
   }, []);
 
