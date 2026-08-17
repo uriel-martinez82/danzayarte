@@ -642,50 +642,60 @@ const CSS = `
   }
   .tn-slots-list { display: flex; flex-direction: column; gap: 8px; }
 
-  /* Slot card */
+  /* Slot card — dark glass */
   .tn-slot-card {
-    background: rgba(255,255,255,0.97); border-radius: 12px;
-    padding: 13px 16px; border: 1px solid #e2e8f0; border-left: 4px solid;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border-radius: 12px; padding: 13px 16px;
+    border: 1.5px solid rgba(255,255,255,0.1); border-left: 4px solid;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   }
-  .tn-slot-card:hover { transform: translateX(2px); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+  .tn-slot-card:hover {
+    transform: translateX(2px);
+    background: rgba(255,255,255,0.09);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
   .tn-slot-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .tn-slot-hora { font-size: 15px; font-weight: 800; color: #0f172a; }
+  .tn-slot-hora { font-size: 15px; font-weight: 800; color: rgba(255,255,255,0.9); }
   .tn-slot-badge {
     font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 8px;
   }
-  .tn-slot-badge.full    { background: #fef2f2; color: #b91c1c; }
-  .tn-slot-badge.partial { background: #fffbeb; color: #92400e; }
-  .tn-slot-badge.empty   { background: #f0fdf4; color: #166534; }
+  .tn-slot-badge.full    { background: rgba(220,38,38,0.2);  color: #fca5a5; border: 1px solid rgba(248,113,113,0.3); }
+  .tn-slot-badge.partial { background: rgba(217,119,6,0.2);  color: #fcd34d; border: 1px solid rgba(251,191,36,0.3); }
+  .tn-slot-badge.empty   { background: rgba(5,150,105,0.2);  color: #6ee7b7; border: 1px solid rgba(52,211,153,0.3); }
   .tn-add-btn {
     display: flex; align-items: center; gap: 5px;
-    padding: 5px 12px; border: 1.5px dashed #cbd5e1;
-    border-radius: 7px; background: transparent; color: #64748b;
+    padding: 5px 12px; border: 1.5px dashed rgba(255,255,255,0.2);
+    border-radius: 7px; background: transparent; color: rgba(255,255,255,0.4);
     font-size: 12px; font-weight: 600; cursor: pointer;
     transition: all 0.15s ease;
   }
   .tn-add-btn:hover {
-    border-color: #7c3aed; color: #7c3aed;
-    background: rgba(124,58,237,0.06);
+    border-color: #a78bfa; color: #a78bfa;
+    background: rgba(167,139,250,0.1);
   }
-  .tn-slot-empty { margin: 4px 0 0; font-size: 12px; color: #cbd5e1; }
+  .tn-slot-empty { margin: 4px 0 0; font-size: 12px; color: rgba(255,255,255,0.25); }
   .tn-reservas-list { display: flex; flex-direction: column; gap: 6px; }
   .tn-reserva-row {
     display: flex; align-items: center; gap: 6px;
-    background: #f8fafc; border-radius: 8px; padding: 7px 10px;
+    background: rgba(255,255,255,0.05); border-radius: 8px; padding: 7px 10px;
+    border: 1px solid rgba(255,255,255,0.07);
     transition: background 0.1s ease;
   }
-  .tn-reserva-row:hover { background: #f1f5f9; }
+  .tn-reserva-row:hover { background: rgba(255,255,255,0.09); }
+  .tn-reserva-nombre { font-size: 13px; color: rgba(255,255,255,0.85); font-weight: 600; flex: 1; }
+  .tn-reserva-dni    { font-size: 12px; color: rgba(255,255,255,0.35); font-family: monospace; }
   .tn-icon-btn {
     display: flex; align-items: center; justify-content: center;
     width: 28px; height: 28px; border-radius: 7px;
-    border: 1px solid #e2e8f0; background: #fff; cursor: pointer;
-    color: #64748b; flex-shrink: 0; transition: all 0.15s ease;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06); cursor: pointer;
+    color: rgba(255,255,255,0.5); flex-shrink: 0; transition: all 0.15s ease;
   }
-  .tn-icon-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
-  .tn-icon-btn.danger { color: #dc2626; }
-  .tn-icon-btn.danger:hover { background: #fef2f2; border-color: #fca5a5; }
+  .tn-icon-btn:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9); }
+  .tn-icon-btn.danger { color: #f87171; }
+  .tn-icon-btn.danger:hover { background: rgba(220,38,38,0.15); border-color: rgba(248,113,113,0.3); }
 
   /* ── Responsive mobile ── */
   @media (max-width: 700px) {

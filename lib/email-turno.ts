@@ -161,8 +161,9 @@ export async function enviarEmailTurno(params: {
     content: pdfBuffer.toString('base64'),
   }];
 
-  const testMode = process.env.TEST_MODE === 'true';
-  const INTERNAL = 'uriel.martinez.elias@gmail.com';
+  const testMode    = process.env.TEST_MODE === 'true';
+  const INTERNAL    = 'uriel.martinez.elias@gmail.com';
+  const MAIL_ESCUELA = process.env.MAIL_ESCUELA ?? INTERNAL;
 
   const envios: Promise<unknown>[] = [];
 
@@ -181,7 +182,7 @@ export async function enviarEmailTurno(params: {
   // Copia interna — siempre
   envios.push(resend.emails.send({
     from: MAIL_FROM,
-    to: INTERNAL,
+    to: testMode ? INTERNAL : MAIL_ESCUELA,
     subject: testMode
       ? `[TEST Escuela] ${subject}`
       : emailDestinatario

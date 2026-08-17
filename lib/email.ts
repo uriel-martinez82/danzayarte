@@ -173,7 +173,7 @@ export async function enviarEmailAutorizacion(
     const MAIL_FROM    = process.env.MAIL_FROM!;
     const n            = numero as 1 | 2;
     const html         = buildEmailHTML(alumno, responsable, n);
-    const subject      = `Danza y Arte - Agustina Spera | Autorización ${n === 1 ? 'Show 28 de Noviembre' : 'Show 6 de Diciembre'} · ${alumno.nombre} ${alumno.apellido}`;
+    const subject      = `Autorización — ${n === 1 ? 'Show 28 de Noviembre' : 'Show 6 de Diciembre'} · ${alumno.nombre} ${alumno.apellido}`;
     const testMode     = process.env.TEST_MODE === 'true';
 
     const pdfBuffer = await generarPDF(alumno, responsable, n);
@@ -190,8 +190,8 @@ export async function enviarEmailAutorizacion(
       }),
       resend.emails.send({
         from: MAIL_FROM,
-        to: 'uriel.martinez.elias@gmail.com',
-        subject: testMode ? `[TEST] ${subject}` : subject,
+        to: testMode ? 'uriel.martinez.elias@gmail.com' : MAIL_ESCUELA,
+        subject: `[Escuela${testMode ? ' TEST' : ''}] ${subject}`,
         html,
         attachments,
       }),
