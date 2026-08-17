@@ -1,5 +1,4 @@
 import { Resend } from 'resend';
-import PDFDocument from 'pdfkit';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const MAIL_FROM = process.env.MAIL_FROM ?? 'noreply@danzayarte.mudigital.com.ar';
@@ -33,18 +32,23 @@ async function generarPDF(params: {
   fecha: string;
   hora: number;
 }): Promise<Buffer> {
+  // Dynamic import — evita errores con módulos nativos en Next.js serverless
+  const PDFDocument = (await import('pdfkit')).default;
+
   const logo = await logoBuffer();
   const { alumnoNombre, alumnoApellido, showNumero, fecha, hora } = params;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const chunks: Buffer[] = [];
-    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
     // Logo
-    if (logo) doc.image(logo, 50, 45, { width: 65 });
+    if (logo) {
+      try { doc.image(logo, 50, 45, { width: 65 }); } catch { /* sin logo */ }
+    }
 
     // Título
     doc.fontSize(20).font('Helvetica-Bold').fillColor('#1a1a2e')
@@ -161,8 +165,8 @@ export async function enviarEmailTurno(params: {
     content: pdfBuffer.toString('base64'),
   }];
 
-  const testMode    = process.env.TEST_MODE === 'true';
-  const INTERNAL    = 'uriel.martinez.elias@gmail.com';
+  const testMode     = process.env.TEST_MODE === 'true';
+  const INTERNAL     = 'uriel.martinez.elias@gmail.com';
   const MAIL_ESCUELA = process.env.MAIL_ESCUELA ?? INTERNAL;
 
   const envios: Promise<unknown>[] = [];
