@@ -8,7 +8,7 @@ const SHOWS = [
   {
     numero: 1,
     titulo: 'Show 28 de Noviembre',
-    fecha: 'Viernes 28 de Noviembre',
+    fecha: 'Sábado 28 de Noviembre',
     hora: 'A confirmar',
     color: '#0891b2',
     colorLight: '#e0f7fa',
@@ -18,7 +18,7 @@ const SHOWS = [
   {
     numero: 2,
     titulo: 'Show 6 de Diciembre',
-    fecha: 'Sábado 6 de Diciembre',
+    fecha: 'Domingo 6 de Diciembre',
     hora: 'A confirmar',
     color: '#7c3aed',
     colorLight: '#ede9fe',
@@ -45,7 +45,7 @@ export default function HomePage() {
 
       {/* ── Intro ── */}
       <p style={s.intro}>
-        Para que tu hija pueda participar del show, necesitamos que completes
+        Para que tu hija/hijo pueda participar del show, necesitamos que completes
         la autorización correspondiente a cada fecha. Hacé clic en el botón
         o escaneá el código QR desde tu celular.
       </p>
@@ -90,7 +90,7 @@ export default function HomePage() {
         <h3 style={s.infoTitle}>ℹ️ ¿Cómo completar la autorización?</h3>
         <ol style={s.infoList}>
           <li>Ingresá al formulario de cada show haciendo clic en el botón o escaneando el QR.</li>
-          <li>Completá los datos de tu hija y los tuyos como adulto responsable.</li>
+          <li>Completá los datos de tu hija/hijo y los tuyos como adulto responsable.</li>
           <li>Hacé clic en "Confirmar" y recibirás un mail con la confirmación.</li>
           <li>Repetí el proceso para el segundo show si tu hija participa en ambas fechas.</li>
         </ol>
