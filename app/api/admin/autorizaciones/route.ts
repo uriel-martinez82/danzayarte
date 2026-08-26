@@ -20,6 +20,8 @@ export async function GET() {
 
   // Agrupamos por par alumno+responsable y marcamos qué shows tienen
   const mapa = new Map<string, {
+    alumno_id: string;
+    responsable_id: string;
     alumno_nombre: string;
     alumno_apellido: string;
     alumno_dni: string;
@@ -39,6 +41,8 @@ export async function GET() {
 
     if (!mapa.has(key)) {
       mapa.set(key, {
+        alumno_id:       row.alumno_id,
+        responsable_id:  row.responsable_id,
         alumno_nombre:   alumno.nombre,
         alumno_apellido: alumno.apellido,
         alumno_dni:      alumno.dni,

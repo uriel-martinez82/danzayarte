@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 
 interface Fila {
+  alumno_id:       string;
+  responsable_id:  string;
   alumno_nombre:   string;
   alumno_apellido: string;
   alumno_dni:      string;
@@ -20,13 +22,17 @@ type Filtro = 'todos' | 'completos' | 'incompletos' | 'ninguno' | 'show1' | 'sho
 const REFRESH_SEG = 30;
 
 export default function AdminAutorizacionesPage() {
-  const [filas,     setFilas]     = useState<Fila[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
-  const [buscar,    setBuscar]    = useState('');
-  const [filtro,    setFiltro]    = useState<Filtro>('todos');
-  const [countdown, setCountdown] = useState(REFRESH_SEG);
-  const [lastUpdate,setLastUpdate]= useState<Date | null>(null);
+  const [filas,        setFilas]        = useState<Fila[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+  const [buscar,       setBuscar]       = useState('');
+  const [filtro,       setFiltro]       = useState<Filtro>('todos');
+  const [countdown,    setCountdown]    = useState(REFRESH_SEG);
+  const [lastUpdate,   setLastUpdate]   = useState<Date | null>(null);
+  const [editando,     setEditando]     = useState<Fila | null>(null);
+  const [editForm,     setEditForm]     = useState<Fila | null>(null);
+  const [guardando,    setGuardando]    = useState(false);
+  const [editError,    setEditError]    = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const cargar = useCallback(async (silencioso = false) => {
@@ -82,6 +88,49 @@ export default function AdminAutorizacionesPage() {
   const totalShow1       = filas.filter(f => f.show1).length;
   const totalShow2       = filas.filter(f => f.show2).length;
   const totalConfirmados = filas.filter(f => f.confirmado).length;
+
+  function abrirEditar(f: Fila) {
+    setEditando(f);
+    setEditForm({ ...f });
+    setEditError(null);
+  }
+
+  function cerrarEditar() {
+    setEditando(null);
+    setEditForm(null);
+    setEditError(null);
+  }
+
+  async function guardarEdicion() {
+    if (!editForm) return;
+    setGuardando(true);
+    setEditError(null);
+    try {
+      const res = await fetch('/api/admin/autorizaciones/editar', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alumno_id:      editForm.alumno_id,
+          responsable_id: editForm.responsable_id,
+          alumno_nombre:   editForm.alumno_nombre,
+          alumno_apellido: editForm.alumno_apellido,
+          alumno_dni:      editForm.alumno_dni,
+          resp_nombre:     editForm.resp_nombre,
+          resp_apellido:   editForm.resp_apellido,
+          resp_dni:        editForm.resp_dni,
+          email:           editForm.email,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Error al guardar');
+      cerrarEditar();
+      cargar(true);
+    } catch (e: unknown) {
+      setEditError(e instanceof Error ? e.message : 'Error inesperado');
+    } finally {
+      setGuardando(false);
+    }
+  }
 
   function imprimir() { window.print(); }
 
@@ -229,12 +278,13 @@ export default function AdminAutorizacionesPage() {
                 <Th center>Show 28 Nov</Th>
                 <Th center>Show 6 Dic</Th>
                 <Th center>Confirmado</Th>
+                <Th center>Editar</Th>
               </tr>
             </thead>
             <tbody>
               {loading && <tr><td colSpan={9} className="az-empty">Cargando…</td></tr>}
               {!loading && filtradas.length === 0 && (
-                <tr><td colSpan={9} className="az-empty">
+                <tr><td colSpan={10} className="az-empty">
                   {buscar ? 'Sin resultados para esa búsqueda.' : 'No hay registros para este filtro.'}
                 </td></tr>
               )}
@@ -249,6 +299,9 @@ export default function AdminAutorizacionesPage() {
                   <Td center><Check ok={f.show1} /></Td>
                   <Td center><Check ok={f.show2} /></Td>
                   <Td center><Check ok={f.confirmado} /></Td>
+                  <Td center>
+                    <button className="az-edit-btn" onClick={() => abrirEditar(f)}>✏️</button>
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -262,6 +315,48 @@ export default function AdminAutorizacionesPage() {
           </p>
         )}
       </div>
+
+      {/* ── Modal de edición ── */}
+      {editando && editForm && (
+        <div className="az-modal-overlay" onClick={cerrarEditar}>
+          <div className="az-modal" onClick={e => e.stopPropagation()}>
+            <div className="az-modal-header">
+              <h2 className="az-modal-title">✏️ Editar registro</h2>
+              <button className="az-modal-close" onClick={cerrarEditar}>✕</button>
+            </div>
+
+            <div className="az-modal-section">
+              <p className="az-modal-section-label">Alumna</p>
+              <div className="az-modal-row">
+                <EditField label="Nombre" value={editForm.alumno_nombre}    onChange={v => setEditForm(f => f ? { ...f, alumno_nombre: v }    : f)} />
+                <EditField label="Apellido" value={editForm.alumno_apellido} onChange={v => setEditForm(f => f ? { ...f, alumno_apellido: v } : f)} />
+                <EditField label="DNI (sin puntos)" value={editForm.alumno_dni} onChange={v => setEditForm(f => f ? { ...f, alumno_dni: v.replace(/\./g, '') } : f)} highlight />
+              </div>
+            </div>
+
+            <div className="az-modal-section">
+              <p className="az-modal-section-label">Responsable</p>
+              <div className="az-modal-row">
+                <EditField label="Nombre" value={editForm.resp_nombre}    onChange={v => setEditForm(f => f ? { ...f, resp_nombre: v }    : f)} />
+                <EditField label="Apellido" value={editForm.resp_apellido} onChange={v => setEditForm(f => f ? { ...f, resp_apellido: v } : f)} />
+                <EditField label="DNI (sin puntos)" value={editForm.resp_dni} onChange={v => setEditForm(f => f ? { ...f, resp_dni: v.replace(/\./g, '') } : f)} highlight />
+              </div>
+              <div className="az-modal-row" style={{ marginTop: 10 }}>
+                <EditField label="Email" value={editForm.email} onChange={v => setEditForm(f => f ? { ...f, email: v } : f)} wide />
+              </div>
+            </div>
+
+            {editError && <div className="az-modal-error">⚠ {editError}</div>}
+
+            <div className="az-modal-actions">
+              <button className="az-btn az-btn-ghost" onClick={cerrarEditar} disabled={guardando}>Cancelar</button>
+              <button className="az-btn az-btn-primary" onClick={guardarEdicion} disabled={guardando}>
+                {guardando ? 'Guardando…' : '✓ Guardar cambios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -301,6 +396,32 @@ function Check({ ok }: { ok: boolean }) {
   return ok
     ? <span className="az-check-yes">✓</span>
     : <span className="az-check-no">—</span>;
+}
+
+function EditField({ label, value, onChange, highlight, wide }: {
+  label: string; value: string;
+  onChange: (v: string) => void;
+  highlight?: boolean; wide?: boolean;
+}) {
+  return (
+    <div style={{ flex: wide ? '1 1 100%' : '1 1 140px', minWidth: 120 }}>
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        {label}
+      </label>
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{
+          width: '100%', padding: '9px 12px',
+          background: highlight ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.07)',
+          border: `1.5px solid ${highlight ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.12)'}`,
+          borderRadius: 9, fontSize: 14, color: '#fff', outline: 'none',
+          fontFamily: 'monospace', boxSizing: 'border-box' as const,
+        }}
+      />
+    </div>
+  );
 }
 
 function LeyendaItem({ color, border, label }: { color: string; border: string; label: string }) {
@@ -557,6 +678,54 @@ const CSS = `
     text-align: right; font-size: 13px;
     color: rgba(255,255,255,0.3); margin-top: 12px;
     position: relative; z-index: 1;
+  }
+
+  /* Edit button */
+  .az-edit-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #94a3b8; border-radius: 7px;
+    padding: 4px 10px; cursor: pointer; font-size: 14px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .az-edit-btn:hover { background: rgba(124,58,237,0.2); color: #a78bfa; border-color: rgba(124,58,237,0.4); }
+
+  /* Modal */
+  .az-modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    animation: fadeUp 0.2s ease both;
+  }
+  .az-modal {
+    background: #1a1040; border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 20px; padding: 28px; width: 100%; max-width: 580px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  }
+  .az-modal-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
+  }
+  .az-modal-title { margin: 0; font-size: 18px; font-weight: 800; color: #fff; }
+  .az-modal-close {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.5); border-radius: 8px;
+    width: 32px; height: 32px; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .az-modal-close:hover { background: rgba(220,38,38,0.2); color: #f87171; }
+  .az-modal-section { margin-bottom: 20px; }
+  .az-modal-section-label {
+    font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35);
+    text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px;
+  }
+  .az-modal-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .az-modal-error {
+    background: rgba(220,38,38,0.12); border: 1.5px solid rgba(248,113,113,0.25);
+    color: #f87171; border-radius: 10px; padding: 10px 14px;
+    font-size: 13px; margin-bottom: 16px;
+  }
+  .az-modal-actions {
+    display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;
   }
 
   @media print {
