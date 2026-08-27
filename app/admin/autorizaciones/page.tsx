@@ -17,7 +17,7 @@ interface Fila {
   confirmado:      boolean;
 }
 
-type Filtro = 'todos' | 'completos' | 'incompletos' | 'ninguno' | 'show1' | 'show2';
+type Filtro = 'todos' | 'completos' | 'incompletos' | 'ninguno' | 'show1' | 'show2' | 'dni-dup' | 'nombre-dup';
 
 const REFRESH_SEG = 30;
 
@@ -33,6 +33,10 @@ export default function AdminAutorizacionesPage() {
   const [editForm,     setEditForm]     = useState<Fila | null>(null);
   const [guardando,    setGuardando]    = useState(false);
   const [editError,    setEditError]    = useState<string | null>(null);
+  const [borrandoFila, setBorrandoFila] = useState<Fila | null>(null);
+  const [fusionando,   setFusionando]   = useState<{ principal: Fila; duplicado: Fila } | null>(null);
+  const [accionando,   setAccionando]   = useState(false);
+  const [accionError,  setAccionError]  = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const cargar = useCallback(async (silencioso = false) => {
@@ -62,12 +66,38 @@ export default function AdminAutorizacionesPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [cargar]);
 
+  // ── Detección de duplicados ──────────────────────────────────────
+  const dniCount = new Map<string, string[]>(); // dni → alumno_ids[]
+  for (const f of filas) {
+    if (!dniCount.has(f.alumno_dni)) dniCount.set(f.alumno_dni, []);
+    if (!dniCount.get(f.alumno_dni)!.includes(f.alumno_id))
+      dniCount.get(f.alumno_dni)!.push(f.alumno_id);
+  }
+  const dnisDuplicados = new Set([...dniCount.entries()].filter(([, ids]) => ids.length > 1).map(([dni]) => dni));
+
+  const nombreCount = new Map<string, string[]>(); // nombre_key → alumno_ids[]
+  for (const f of filas) {
+    const key = `${f.alumno_apellido.toLowerCase().trim()}|${f.alumno_nombre.toLowerCase().trim()}`;
+    if (!nombreCount.has(key)) nombreCount.set(key, []);
+    if (!nombreCount.get(key)!.includes(f.alumno_id))
+      nombreCount.get(key)!.push(f.alumno_id);
+  }
+  const nombresDuplicados = new Set(
+    [...nombreCount.entries()].filter(([, ids]) => ids.length > 1)
+      .map(([k]) => k)
+  );
+
+  const totalDniDup    = filas.filter(f => dnisDuplicados.has(f.alumno_dni)).length;
+  const totalNombreDup = filas.filter(f => nombresDuplicados.has(`${f.alumno_apellido.toLowerCase().trim()}|${f.alumno_nombre.toLowerCase().trim()}`)).length;
+
   const porFiltro = (f: Fila) => {
     if (filtro === 'completos')   return f.show1 && f.show2;
     if (filtro === 'incompletos') return (f.show1 && !f.show2) || (!f.show1 && f.show2);
     if (filtro === 'ninguno')     return !f.show1 && !f.show2;
     if (filtro === 'show1')       return f.show1;
     if (filtro === 'show2')       return f.show2;
+    if (filtro === 'dni-dup')     return dnisDuplicados.has(f.alumno_dni);
+    if (filtro === 'nombre-dup')  return nombresDuplicados.has(`${f.alumno_apellido.toLowerCase().trim()}|${f.alumno_nombre.toLowerCase().trim()}`);
     return true;
   };
 
@@ -88,6 +118,63 @@ export default function AdminAutorizacionesPage() {
   const totalShow1       = filas.filter(f => f.show1).length;
   const totalShow2       = filas.filter(f => f.show2).length;
   const totalConfirmados = filas.filter(f => f.confirmado).length;
+
+  async function borrarFila() {
+    if (!borrandoFila) return;
+    setAccionando(true); setAccionError(null);
+    try {
+      const res = await fetch('/api/admin/autorizaciones/borrar', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alumno_id: borrandoFila.alumno_id, responsable_id: borrandoFila.responsable_id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Error al borrar');
+      setBorrandoFila(null);
+      cargar(true);
+    } catch (e: unknown) {
+      setAccionError(e instanceof Error ? e.message : 'Error inesperado');
+    } finally {
+      setAccionando(false);
+    }
+  }
+
+  async function confirmarFusion() {
+    if (!fusionando) return;
+    setAccionando(true); setAccionError(null);
+    try {
+      const res = await fetch('/api/admin/autorizaciones/fusionar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alumno_id_principal:  fusionando.principal.alumno_id,
+          alumno_id_duplicado:  fusionando.duplicado.alumno_id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Error al fusionar');
+      setFusionando(null);
+      cargar(true);
+    } catch (e: unknown) {
+      setAccionError(e instanceof Error ? e.message : 'Error inesperado');
+    } finally {
+      setAccionando(false);
+    }
+  }
+
+  function abrirFusion(duplicado: Fila) {
+    // El principal es el primero de los duplicados con ese DNI/nombre
+    const principal = filas.find(f =>
+      f.alumno_id !== duplicado.alumno_id &&
+      (filtro === 'dni-dup'
+        ? f.alumno_dni === duplicado.alumno_dni
+        : `${f.alumno_apellido.toLowerCase().trim()}|${f.alumno_nombre.toLowerCase().trim()}` ===
+          `${duplicado.alumno_apellido.toLowerCase().trim()}|${duplicado.alumno_nombre.toLowerCase().trim()}`)
+    );
+    if (!principal) return;
+    setAccionError(null);
+    setFusionando({ principal, duplicado });
+  }
 
   function abrirEditar(f: Fila) {
     setEditando(f);
@@ -163,12 +250,14 @@ export default function AdminAutorizacionesPage() {
   };
 
   const TABS: { key: Filtro; label: string; count: number; color: string; glow: string }[] = [
-    { key: 'todos',       label: 'Todos',          count: filas.length,     color: '#6d28d9', glow: 'rgba(109,40,217,0.3)' },
-    { key: 'show1',       label: '📅 Show 28 Nov', count: totalShow1,       color: '#0891b2', glow: 'rgba(8,145,178,0.3)' },
-    { key: 'show2',       label: '📅 Show 6 Dic',  count: totalShow2,       color: '#7c3aed', glow: 'rgba(124,58,237,0.3)' },
-    { key: 'completos',   label: '✓ Ambos shows',  count: totalCompletos,   color: '#059669', glow: 'rgba(5,150,105,0.3)' },
-    { key: 'incompletos', label: '⚠ Incompletos',  count: totalIncompletos, color: '#d97706', glow: 'rgba(217,119,6,0.3)' },
-    { key: 'ninguno',     label: '✗ Sin firmar',   count: totalNinguno,     color: '#dc2626', glow: 'rgba(220,38,38,0.3)' },
+    { key: 'todos',       label: 'Todos',           count: filas.length,     color: '#6d28d9', glow: 'rgba(109,40,217,0.3)' },
+    { key: 'show1',       label: '📅 Show 28 Nov',  count: totalShow1,       color: '#0891b2', glow: 'rgba(8,145,178,0.3)' },
+    { key: 'show2',       label: '📅 Show 6 Dic',   count: totalShow2,       color: '#7c3aed', glow: 'rgba(124,58,237,0.3)' },
+    { key: 'completos',   label: '✓ Ambos shows',   count: totalCompletos,   color: '#059669', glow: 'rgba(5,150,105,0.3)' },
+    { key: 'incompletos', label: '⚠ Incompletos',   count: totalIncompletos, color: '#d97706', glow: 'rgba(217,119,6,0.3)' },
+    { key: 'ninguno',     label: '✗ Sin firmar',    count: totalNinguno,     color: '#dc2626', glow: 'rgba(220,38,38,0.3)' },
+    { key: 'dni-dup',     label: '🔴 DNI duplicado', count: totalDniDup,     color: '#be123c', glow: 'rgba(190,18,60,0.3)' },
+    { key: 'nombre-dup',  label: '🟠 Nombre dup.',  count: totalNombreDup,  color: '#c2410c', glow: 'rgba(194,65,12,0.3)' },
   ];
 
   const pct = filas.length > 0 ? Math.round((totalCompletos / filas.length) * 100) : 0;
@@ -300,7 +389,13 @@ export default function AdminAutorizacionesPage() {
                   <Td center><Check ok={f.show2} /></Td>
                   <Td center><Check ok={f.confirmado} /></Td>
                   <Td center>
-                    <button className="az-edit-btn" onClick={() => abrirEditar(f)}>✏️</button>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}>
+                      {(filtro === 'dni-dup' || filtro === 'nombre-dup') && (
+                        <button className="az-fusion-btn" title="Fusionar con el otro duplicado" onClick={() => abrirFusion(f)}>🔀</button>
+                      )}
+                      <button className="az-edit-btn" title="Editar" onClick={() => abrirEditar(f)}>✏️</button>
+                      <button className="az-delete-btn" title="Borrar registro" onClick={() => { setAccionError(null); setBorrandoFila(f); }}>🗑️</button>
+                    </div>
                   </Td>
                 </tr>
               ))}
@@ -315,6 +410,59 @@ export default function AdminAutorizacionesPage() {
           </p>
         )}
       </div>
+
+      {/* ── Modal de borrado ── */}
+      {borrandoFila && (
+        <div className="az-modal-overlay" onClick={() => setBorrandoFila(null)}>
+          <div className="az-modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <div className="az-modal-header">
+              <h2 className="az-modal-title">🗑️ Borrar registro</h2>
+              <button className="az-modal-close" onClick={() => setBorrandoFila(null)}>✕</button>
+            </div>
+            <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 15, margin: '0 0 20px', lineHeight: 1.6 }}>
+              ¿Confirmás que querés borrar las autorizaciones de{' '}
+              <strong style={{ color: '#fff' }}>{borrandoFila.alumno_apellido}, {borrandoFila.alumno_nombre}</strong>{' '}
+              (DNI {borrandoFila.alumno_dni})?
+            </p>
+            <div style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#fca5a5' }}>
+              ⚠ Solo se borran las autorizaciones. Los datos del alumno y responsable quedan en la base.
+            </div>
+            {accionError && <div className="az-modal-error">⚠ {accionError}</div>}
+            <div className="az-modal-actions">
+              <button className="az-btn az-btn-ghost" onClick={() => setBorrandoFila(null)} disabled={accionando}>Cancelar</button>
+              <button className="az-btn az-btn-danger" onClick={borrarFila} disabled={accionando}>
+                {accionando ? 'Borrando…' : '🗑️ Sí, borrar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de fusión ── */}
+      {fusionando && (
+        <div className="az-modal-overlay" onClick={() => setFusionando(null)}>
+          <div className="az-modal" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
+            <div className="az-modal-header">
+              <h2 className="az-modal-title">🔀 Fusionar duplicados</h2>
+              <button className="az-modal-close" onClick={() => setFusionando(null)}>✕</button>
+            </div>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, margin: '0 0 18px' }}>
+              Se fusionarán ambos registros en uno. Las autorizaciones que le falten al <strong style={{ color: '#a78bfa' }}>registro principal</strong> se copiarán desde el duplicado. El duplicado se eliminará.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              <FusionCard label="🟢 Principal (se conserva)" fila={fusionando.principal} />
+              <FusionCard label="🔴 Duplicado (se elimina)" fila={fusionando.duplicado} />
+            </div>
+            {accionError && <div className="az-modal-error">⚠ {accionError}</div>}
+            <div className="az-modal-actions">
+              <button className="az-btn az-btn-ghost" onClick={() => setFusionando(null)} disabled={accionando}>Cancelar</button>
+              <button className="az-btn az-btn-primary" onClick={confirmarFusion} disabled={accionando}>
+                {accionando ? 'Fusionando…' : '🔀 Confirmar fusión'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal de edición ── */}
       {editando && editForm && (
@@ -396,6 +544,21 @@ function Check({ ok }: { ok: boolean }) {
   return ok
     ? <span className="az-check-yes">✓</span>
     : <span className="az-check-no">—</span>;
+}
+
+function FusionCard({ label, fila }: { label: string; fila: Fila }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '14px 16px' }}>
+      <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
+      <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: '#fff' }}>{fila.alumno_apellido}, {fila.alumno_nombre}</p>
+      <p style={{ margin: '0 0 4px', fontSize: 13, color: '#fbbf24', fontFamily: 'monospace' }}>DNI {fila.alumno_dni}</p>
+      <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{fila.email}</p>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {fila.show1 && <span style={{ background: 'rgba(8,145,178,0.2)', color: '#22d3ee', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Show 28 Nov</span>}
+        {fila.show2 && <span style={{ background: 'rgba(124,58,237,0.2)', color: '#c084fc', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Show 6 Dic</span>}
+      </div>
+    </div>
+  );
 }
 
 function EditField({ label, value, onChange, highlight, wide }: {
@@ -689,6 +852,24 @@ const CSS = `
     transition: background 0.15s, color 0.15s;
   }
   .az-edit-btn:hover { background: rgba(124,58,237,0.2); color: #a78bfa; border-color: rgba(124,58,237,0.4); }
+
+  .az-delete-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #94a3b8; border-radius: 7px;
+    padding: 4px 8px; cursor: pointer; font-size: 13px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .az-delete-btn:hover { background: rgba(220,38,38,0.2); color: #f87171; border-color: rgba(248,113,113,0.3); }
+
+  .az-fusion-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,165,0,0.25);
+    color: #fbbf24; border-radius: 7px;
+    padding: 4px 8px; cursor: pointer; font-size: 13px;
+    transition: background 0.15s;
+  }
+  .az-fusion-btn:hover { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.5); }
 
   /* Modal */
   .az-modal-overlay {
