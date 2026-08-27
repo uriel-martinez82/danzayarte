@@ -17,7 +17,7 @@ interface Fila {
   confirmado:      boolean;
 }
 
-type Filtro = 'todos' | 'completos' | 'incompletos' | 'ninguno' | 'show1' | 'show2' | 'dni-dup' | 'nombre-dup';
+type Filtro = 'todos' | 'completos' | 'incompletos' | 'ninguno' | 'show1' | 'show2' | 'dni-dup' | 'nombre-dup' | 'resp-dup';
 
 const REFRESH_SEG = 30;
 
@@ -34,7 +34,8 @@ export default function AdminAutorizacionesPage() {
   const [guardando,    setGuardando]    = useState(false);
   const [editError,    setEditError]    = useState<string | null>(null);
   const [borrandoFila, setBorrandoFila] = useState<Fila | null>(null);
-  const [fusionando,   setFusionando]   = useState<{ principal: Fila; duplicado: Fila } | null>(null);
+  const [fusionando,     setFusionando]     = useState<{ principal: Fila; duplicado: Fila } | null>(null);
+  const [fusionandoResp, setFusionandoResp] = useState<{ principal: Fila; duplicado: Fila } | null>(null);
   const [accionando,   setAccionando]   = useState(false);
   const [accionError,  setAccionError]  = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -90,6 +91,17 @@ export default function AdminAutorizacionesPage() {
   const totalDniDup    = filas.filter(f => dnisDuplicados.has(f.alumno_dni)).length;
   const totalNombreDup = filas.filter(f => nombresDuplicados.has(`${f.alumno_apellido.toLowerCase().trim()}|${f.alumno_nombre.toLowerCase().trim()}`)).length;
 
+  // Detección de responsables duplicados (mismo email, distinto responsable_id)
+  const emailRespCount = new Map<string, string[]>(); // email → responsable_ids[]
+  for (const f of filas) {
+    const em = f.email.toLowerCase().trim();
+    if (!emailRespCount.has(em)) emailRespCount.set(em, []);
+    if (!emailRespCount.get(em)!.includes(f.responsable_id))
+      emailRespCount.get(em)!.push(f.responsable_id);
+  }
+  const emailsRespDup = new Set([...emailRespCount.entries()].filter(([, ids]) => ids.length > 1).map(([em]) => em));
+  const totalRespDup  = filas.filter(f => emailsRespDup.has(f.email.toLowerCase().trim())).length;
+
   const porFiltro = (f: Fila) => {
     if (filtro === 'completos')   return f.show1 && f.show2;
     if (filtro === 'incompletos') return (f.show1 && !f.show2) || (!f.show1 && f.show2);
@@ -98,6 +110,7 @@ export default function AdminAutorizacionesPage() {
     if (filtro === 'show2')       return f.show2;
     if (filtro === 'dni-dup')     return dnisDuplicados.has(f.alumno_dni);
     if (filtro === 'nombre-dup')  return nombresDuplicados.has(`${f.alumno_apellido.toLowerCase().trim()}|${f.alumno_nombre.toLowerCase().trim()}`);
+    if (filtro === 'resp-dup')    return emailsRespDup.has(f.email.toLowerCase().trim());
     return true;
   };
 
@@ -174,6 +187,40 @@ export default function AdminAutorizacionesPage() {
     if (!principal) return;
     setAccionError(null);
     setFusionando({ principal, duplicado });
+  }
+
+  async function confirmarFusionResponsable() {
+    if (!fusionandoResp) return;
+    setAccionando(true); setAccionError(null);
+    try {
+      const res = await fetch('/api/admin/autorizaciones/fusionar-responsable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          responsable_id_principal: fusionandoResp.principal.responsable_id,
+          responsable_id_duplicado: fusionandoResp.duplicado.responsable_id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Error al fusionar');
+      setFusionandoResp(null);
+      cargar(true);
+    } catch (e: unknown) {
+      setAccionError(e instanceof Error ? e.message : 'Error inesperado');
+    } finally {
+      setAccionando(false);
+    }
+  }
+
+  function abrirFusionResponsable(duplicado: Fila) {
+    // El principal es el primero con el mismo email pero distinto responsable_id
+    const principal = filas.find(f =>
+      f.responsable_id !== duplicado.responsable_id &&
+      f.email.toLowerCase().trim() === duplicado.email.toLowerCase().trim()
+    );
+    if (!principal) return;
+    setAccionError(null);
+    setFusionandoResp({ principal, duplicado });
   }
 
   function abrirEditar(f: Fila) {
@@ -258,6 +305,7 @@ export default function AdminAutorizacionesPage() {
     { key: 'ninguno',     label: '✗ Sin firmar',    count: totalNinguno,     color: '#dc2626', glow: 'rgba(220,38,38,0.3)' },
     { key: 'dni-dup',     label: '🔴 DNI duplicado', count: totalDniDup,     color: '#be123c', glow: 'rgba(190,18,60,0.3)' },
     { key: 'nombre-dup',  label: '🟠 Nombre dup.',  count: totalNombreDup,  color: '#c2410c', glow: 'rgba(194,65,12,0.3)' },
+    { key: 'resp-dup',    label: '🟣 Resp. dup.',   count: totalRespDup,    color: '#7e22ce', glow: 'rgba(126,34,206,0.3)' },
   ];
 
   const pct = filas.length > 0 ? Math.round((totalCompletos / filas.length) * 100) : 0;
@@ -391,7 +439,10 @@ export default function AdminAutorizacionesPage() {
                   <Td center>
                     <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}>
                       {(filtro === 'dni-dup' || filtro === 'nombre-dup') && (
-                        <button className="az-fusion-btn" title="Fusionar con el otro duplicado" onClick={() => abrirFusion(f)}>🔀</button>
+                        <button className="az-fusion-btn" title="Fusionar alumnos duplicados" onClick={() => abrirFusion(f)}>🔀</button>
+                      )}
+                      {filtro === 'resp-dup' && (
+                        <button className="az-fusion-btn" title="Fusionar responsables duplicados" onClick={() => abrirFusionResponsable(f)}>🔀</button>
                       )}
                       <button className="az-edit-btn" title="Editar" onClick={() => abrirEditar(f)}>✏️</button>
                       <button className="az-delete-btn" title="Borrar registro" onClick={() => { setAccionError(null); setBorrandoFila(f); }}>🗑️</button>
@@ -457,6 +508,35 @@ export default function AdminAutorizacionesPage() {
             <div className="az-modal-actions">
               <button className="az-btn az-btn-ghost" onClick={() => setFusionando(null)} disabled={accionando}>Cancelar</button>
               <button className="az-btn az-btn-primary" onClick={confirmarFusion} disabled={accionando}>
+                {accionando ? 'Fusionando…' : '🔀 Confirmar fusión'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de fusión de responsable ── */}
+      {fusionandoResp && (
+        <div className="az-modal-overlay" onClick={() => setFusionandoResp(null)}>
+          <div className="az-modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+            <div className="az-modal-header">
+              <h2 className="az-modal-title">🔀 Fusionar responsables duplicados</h2>
+              <button className="az-modal-close" onClick={() => setFusionandoResp(null)}>✕</button>
+            </div>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, margin: '0 0 6px' }}>
+              Mismo email, dos registros distintos de responsable. Las autorizaciones del duplicado se reasignarán al principal y el responsable duplicado se eliminará.
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, margin: '0 0 18px' }}>
+              Alumna: <strong style={{ color: '#fff' }}>{fusionandoResp.principal.alumno_apellido}, {fusionandoResp.principal.alumno_nombre}</strong>
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              <FusionRespCard label="🟢 Principal (se conserva)" fila={fusionandoResp.principal} />
+              <FusionRespCard label="🔴 Duplicado (se elimina)"  fila={fusionandoResp.duplicado} />
+            </div>
+            {accionError && <div className="az-modal-error">⚠ {accionError}</div>}
+            <div className="az-modal-actions">
+              <button className="az-btn az-btn-ghost" onClick={() => setFusionandoResp(null)} disabled={accionando}>Cancelar</button>
+              <button className="az-btn az-btn-primary" onClick={confirmarFusionResponsable} disabled={accionando}>
                 {accionando ? 'Fusionando…' : '🔀 Confirmar fusión'}
               </button>
             </div>
@@ -552,6 +632,21 @@ function FusionCard({ label, fila }: { label: string; fila: Fila }) {
       <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
       <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: '#fff' }}>{fila.alumno_apellido}, {fila.alumno_nombre}</p>
       <p style={{ margin: '0 0 4px', fontSize: 13, color: '#fbbf24', fontFamily: 'monospace' }}>DNI {fila.alumno_dni}</p>
+      <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{fila.email}</p>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {fila.show1 && <span style={{ background: 'rgba(8,145,178,0.2)', color: '#22d3ee', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Show 28 Nov</span>}
+        {fila.show2 && <span style={{ background: 'rgba(124,58,237,0.2)', color: '#c084fc', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Show 6 Dic</span>}
+      </div>
+    </div>
+  );
+}
+
+function FusionRespCard({ label, fila }: { label: string; fila: Fila }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '14px 16px' }}>
+      <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
+      <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: '#fff' }}>{fila.resp_apellido}, {fila.resp_nombre}</p>
+      <p style={{ margin: '0 0 4px', fontSize: 13, color: '#fbbf24', fontFamily: 'monospace' }}>DNI {fila.resp_dni}</p>
       <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{fila.email}</p>
       <div style={{ display: 'flex', gap: 6 }}>
         {fila.show1 && <span style={{ background: 'rgba(8,145,178,0.2)', color: '#22d3ee', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Show 28 Nov</span>}
