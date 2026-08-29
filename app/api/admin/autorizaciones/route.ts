@@ -61,6 +61,33 @@ export async function GET() {
     if (row.numero === 2) entry.show2 = true;
   }
 
+  // También incluimos alumnos que no tienen ninguna autorización
+  // (agregados manualmente, sin shows marcados)
+  const alumnoIdsEnMapa = new Set([...mapa.values()].map(v => v.alumno_id));
+  const { data: todosAlumnos } = await supabaseAdmin
+    .from('alumnos')
+    .select('id, nombre, apellido, dni, confirmado');
+
+  for (const alumno of (todosAlumnos ?? [])) {
+    if (!alumnoIdsEnMapa.has(alumno.id)) {
+      const key = `sin-aut-${alumno.id}`;
+      mapa.set(key, {
+        alumno_id:       alumno.id,
+        responsable_id:  '',
+        alumno_nombre:   alumno.nombre,
+        alumno_apellido: alumno.apellido,
+        alumno_dni:      alumno.dni,
+        resp_nombre:     '',
+        resp_apellido:   '',
+        resp_dni:        '',
+        email:           '',
+        show1:           false,
+        show2:           false,
+        confirmado:      alumno.confirmado ?? false,
+      });
+    }
+  }
+
   // Ordenamos por apellido del alumno
   const result = Array.from(mapa.values()).sort((a, b) =>
     a.alumno_apellido.localeCompare(b.alumno_apellido)

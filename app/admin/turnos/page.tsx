@@ -73,7 +73,7 @@ function AlumnoPicker({ alumnos, onSelect, excludeId }: { alumnos: Alumno[]; onS
   const filtered = alumnos
     .filter(a => a.id !== excludeId)
     .filter(a => `${a.apellido} ${a.nombre} ${a.dni}`.toLowerCase().includes(q.toLowerCase()))
-    .slice(0, 10);
+    .slice(0, 150);
 
   return (
     <div>

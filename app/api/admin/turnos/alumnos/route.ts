@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
 // GET /api/admin/turnos/alumnos
-// Returns all confirmados with their reservation status for the active show
+// Returns ALL alumnos (not only confirmados) with their reservation status for the active show.
+// The admin should be able to assign turns to any registered student.
 export async function GET() {
   // Get active show
   const { data: configData } = await supabaseAdmin
@@ -13,11 +14,10 @@ export async function GET() {
 
   const showActivo = configData?.valor ?? '0';
 
-  // Get all confirmed alumnos
+  // Get ALL alumnos (admin can assign to anyone in the system)
   const { data: alumnos, error } = await supabaseAdmin
     .from('alumnos')
     .select('id, nombre, apellido, dni')
-    .eq('confirmado', true)
     .order('apellido', { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

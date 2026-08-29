@@ -33,7 +33,11 @@ export default function AdminAutorizacionesPage() {
   const [editForm,     setEditForm]     = useState<Fila | null>(null);
   const [guardando,    setGuardando]    = useState(false);
   const [editError,    setEditError]    = useState<string | null>(null);
-  const [borrandoFila, setBorrandoFila] = useState<Fila | null>(null);
+  const [borrandoFila,  setBorrandoFila]  = useState<Fila | null>(null);
+  const [agregando,     setAgregando]     = useState(false);
+  const [agregarForm,   setAgregarForm]   = useState({ alumno_nombre: '', alumno_apellido: '', alumno_dni: '' });
+  const [agregarError,  setAgregarError]  = useState<string | null>(null);
+  const [agregarLoading,setAgregarLoading]= useState(false);
   const [fusionando,     setFusionando]     = useState<{ principal: Fila; duplicado: Fila } | null>(null);
   const [fusionandoResp, setFusionandoResp] = useState<{ principal: Fila; duplicado: Fila } | null>(null);
   const [accionando,   setAccionando]   = useState(false);
@@ -266,6 +270,35 @@ export default function AdminAutorizacionesPage() {
     }
   }
 
+  async function guardarAgregar() {
+    const { alumno_nombre, alumno_apellido, alumno_dni } = agregarForm;
+    if (!alumno_nombre.trim() || !alumno_apellido.trim() || !alumno_dni.trim()) {
+      setAgregarError('Nombre, apellido y DNI del alumno son obligatorios.');
+      return;
+    }
+    setAgregarLoading(true); setAgregarError(null);
+    try {
+      const res = await fetch('/api/admin/autorizaciones/crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alumno_nombre: alumno_nombre.trim(),
+          alumno_apellido: alumno_apellido.trim(),
+          alumno_dni: alumno_dni.trim().replace(/\./g, ''),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Error al guardar');
+      setAgregando(false);
+      setAgregarForm({ alumno_nombre: '', alumno_apellido: '', alumno_dni: '' });
+      cargar(true);
+    } catch (e: unknown) {
+      setAgregarError(e instanceof Error ? e.message : 'Error inesperado');
+    } finally {
+      setAgregarLoading(false);
+    }
+  }
+
   function imprimir() { window.print(); }
 
   function exportarCSV() {
@@ -329,6 +362,7 @@ export default function AdminAutorizacionesPage() {
             <span className="az-refresh-badge">
               {loading ? '↻ Actualizando…' : `↻ en ${countdown}s`}
             </span>
+            <button onClick={() => { setAgregarError(null); setAgregarForm({ alumno_nombre: '', alumno_apellido: '', alumno_dni: '' }); setAgregando(true); }} className="az-btn az-btn-green">➕ Agregar</button>
             <button onClick={() => cargar(false)} className="az-btn az-btn-primary" disabled={loading}>Actualizar</button>
             <button onClick={exportarCSV} className="az-btn az-btn-green" disabled={loading || filtradas.length === 0}>↓ CSV</button>
             <button onClick={imprimir}   className="az-btn az-btn-ghost" disabled={loading || filtradas.length === 0}>🖨 Imprimir</button>
@@ -445,7 +479,9 @@ export default function AdminAutorizacionesPage() {
                         <button className="az-fusion-btn" title="Fusionar responsables duplicados" onClick={() => abrirFusionResponsable(f)}>🔀</button>
                       )}
                       <button className="az-edit-btn" title="Editar" onClick={() => abrirEditar(f)}>✏️</button>
-                      <button className="az-delete-btn" title="Borrar registro" onClick={() => { setAccionError(null); setBorrandoFila(f); }}>🗑️</button>
+                      {f.responsable_id && (
+                        <button className="az-delete-btn" title="Borrar registro" onClick={() => { setAccionError(null); setBorrandoFila(f); }}>🗑️</button>
+                      )}
                     </div>
                   </Td>
                 </tr>
@@ -515,6 +551,39 @@ export default function AdminAutorizacionesPage() {
         </div>
       )}
 
+      {/* ── Modal de agregar alumno ── */}
+      {agregando && (
+        <div className="az-modal-overlay" onClick={() => setAgregando(false)}>
+          <div className="az-modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="az-modal-header">
+              <h2 className="az-modal-title">➕ Agregar alumno</h2>
+              <button className="az-modal-close" onClick={() => setAgregando(false)}>✕</button>
+            </div>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, margin: '0 0 20px', lineHeight: 1.6 }}>
+              Completá los datos del alumno. El registro aparece en la lista sin shows asignados.
+            </p>
+            <div className="az-modal-section">
+              <p className="az-modal-section-label">Alumno/a</p>
+              <div className="az-modal-row">
+                <EditField label="Nombre *" value={agregarForm.alumno_nombre}
+                  onChange={v => setAgregarForm(f => ({ ...f, alumno_nombre: v }))} />
+                <EditField label="Apellido *" value={agregarForm.alumno_apellido}
+                  onChange={v => setAgregarForm(f => ({ ...f, alumno_apellido: v }))} />
+                <EditField label="DNI (sin puntos) *" value={agregarForm.alumno_dni}
+                  onChange={v => setAgregarForm(f => ({ ...f, alumno_dni: v.replace(/\./g, '') }))} highlight />
+              </div>
+            </div>
+            {agregarError && <div className="az-modal-error">⚠ {agregarError}</div>}
+            <div className="az-modal-actions">
+              <button className="az-btn az-btn-ghost" onClick={() => setAgregando(false)} disabled={agregarLoading}>Cancelar</button>
+              <button className="az-btn az-btn-green" onClick={guardarAgregar} disabled={agregarLoading}>
+                {agregarLoading ? 'Guardando…' : '✓ Agregar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal de fusión de responsable ── */}
       {fusionandoResp && (
         <div className="az-modal-overlay" onClick={() => setFusionandoResp(null)}>
@@ -562,17 +631,23 @@ export default function AdminAutorizacionesPage() {
               </div>
             </div>
 
-            <div className="az-modal-section">
-              <p className="az-modal-section-label">Responsable</p>
-              <div className="az-modal-row">
-                <EditField label="Nombre" value={editForm.resp_nombre}    onChange={v => setEditForm(f => f ? { ...f, resp_nombre: v }    : f)} />
-                <EditField label="Apellido" value={editForm.resp_apellido} onChange={v => setEditForm(f => f ? { ...f, resp_apellido: v } : f)} />
-                <EditField label="DNI (sin puntos)" value={editForm.resp_dni} onChange={v => setEditForm(f => f ? { ...f, resp_dni: v.replace(/\./g, '') } : f)} highlight />
+            {editForm.responsable_id ? (
+              <div className="az-modal-section">
+                <p className="az-modal-section-label">Responsable</p>
+                <div className="az-modal-row">
+                  <EditField label="Nombre" value={editForm.resp_nombre}    onChange={v => setEditForm(f => f ? { ...f, resp_nombre: v }    : f)} />
+                  <EditField label="Apellido" value={editForm.resp_apellido} onChange={v => setEditForm(f => f ? { ...f, resp_apellido: v } : f)} />
+                  <EditField label="DNI (sin puntos)" value={editForm.resp_dni} onChange={v => setEditForm(f => f ? { ...f, resp_dni: v.replace(/\./g, '') } : f)} highlight />
+                </div>
+                <div className="az-modal-row" style={{ marginTop: 10 }}>
+                  <EditField label="Email" value={editForm.email} onChange={v => setEditForm(f => f ? { ...f, email: v } : f)} wide />
+                </div>
               </div>
-              <div className="az-modal-row" style={{ marginTop: 10 }}>
-                <EditField label="Email" value={editForm.email} onChange={v => setEditForm(f => f ? { ...f, email: v } : f)} wide />
+            ) : (
+              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
+                Sin responsable registrado. El alumno fue agregado manualmente.
               </div>
-            </div>
+            )}
 
             {editError && <div className="az-modal-error">⚠ {editError}</div>}
 
