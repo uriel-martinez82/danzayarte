@@ -479,9 +479,7 @@ export default function AdminAutorizacionesPage() {
                         <button className="az-fusion-btn" title="Fusionar responsables duplicados" onClick={() => abrirFusionResponsable(f)}>🔀</button>
                       )}
                       <button className="az-edit-btn" title="Editar" onClick={() => abrirEditar(f)}>✏️</button>
-                      {f.responsable_id && (
-                        <button className="az-delete-btn" title="Borrar registro" onClick={() => { setAccionError(null); setBorrandoFila(f); }}>🗑️</button>
-                      )}
+                      <button className="az-delete-btn" title="Borrar registro" onClick={() => { setAccionError(null); setBorrandoFila(f); }}>🗑️</button>
                     </div>
                   </Td>
                 </tr>
@@ -512,7 +510,10 @@ export default function AdminAutorizacionesPage() {
               (DNI {borrandoFila.alumno_dni})?
             </p>
             <div style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#fca5a5' }}>
-              ⚠ Solo se borran las autorizaciones. Los datos del alumno y responsable quedan en la base.
+              {borrandoFila?.responsable_id
+                ? '⚠ Solo se borran las autorizaciones. Los datos del alumno y responsable quedan en la base.'
+                : '⚠ Este alumno fue agregado manualmente y no tiene autorizaciones. Se eliminará de la base de datos.'
+              }
             </div>
             {accionError && <div className="az-modal-error">⚠ {accionError}</div>}
             <div className="az-modal-actions">
