@@ -17,7 +17,7 @@ interface Fila {
   confirmado:      boolean;
 }
 
-type Filtro = 'todos' | 'completos' | 'incompletos' | 'ninguno' | 'show1' | 'show2' | 'dni-dup' | 'nombre-dup' | 'resp-dup';
+type Filtro = 'todos' | 'completos' | 'incompletos' | 'ninguno' | 'show1' | 'show2' | 'dni-dup' | 'nombre-dup' | 'resp-dup' | 'confirmados' | 'sin-confirmar';
 
 const REFRESH_SEG = 30;
 
@@ -115,6 +115,8 @@ export default function AdminAutorizacionesPage() {
     if (filtro === 'dni-dup')     return dnisDuplicados.has(f.alumno_dni);
     if (filtro === 'nombre-dup')  return nombresDuplicados.has(`${f.alumno_apellido.toLowerCase().trim()}|${f.alumno_nombre.toLowerCase().trim()}`);
     if (filtro === 'resp-dup')    return emailsRespDup.has(f.email.toLowerCase().trim());
+    if (filtro === 'confirmados')   return f.confirmado;
+    if (filtro === 'sin-confirmar') return !f.confirmado;
     return true;
   };
 
@@ -134,7 +136,8 @@ export default function AdminAutorizacionesPage() {
   const totalNinguno     = filas.filter(f => !f.show1 && !f.show2).length;
   const totalShow1       = filas.filter(f => f.show1).length;
   const totalShow2       = filas.filter(f => f.show2).length;
-  const totalConfirmados = filas.filter(f => f.confirmado).length;
+  const totalConfirmados   = filas.filter(f => f.confirmado).length;
+  const totalSinConfirmar  = filas.filter(f => !f.confirmado).length;
 
   async function borrarFila() {
     if (!borrandoFila) return;
@@ -339,6 +342,8 @@ export default function AdminAutorizacionesPage() {
     { key: 'dni-dup',     label: '🔴 DNI duplicado', count: totalDniDup,     color: '#be123c', glow: 'rgba(190,18,60,0.3)' },
     { key: 'nombre-dup',  label: '🟠 Nombre dup.',  count: totalNombreDup,  color: '#c2410c', glow: 'rgba(194,65,12,0.3)' },
     { key: 'resp-dup',    label: '🟣 Resp. dup.',   count: totalRespDup,    color: '#7e22ce', glow: 'rgba(126,34,206,0.3)' },
+    { key: 'confirmados',   label: '✅ Confirmados',   count: totalConfirmados,  color: '#0f766e', glow: 'rgba(15,118,110,0.3)' },
+    { key: 'sin-confirmar', label: '⏳ Sin confirmar', count: totalSinConfirmar, color: '#92400e', glow: 'rgba(146,64,14,0.3)' },
   ];
 
   const pct = filas.length > 0 ? Math.round((totalCompletos / filas.length) * 100) : 0;
