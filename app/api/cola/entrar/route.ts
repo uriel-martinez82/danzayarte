@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-const COOKIE_NAME  = 'dya_turnos_dni';
-const ACTIVE_LIMIT = 50; // cuántos pueden estar en el turnero al mismo tiempo
+const COOKIE_NAME      = 'dya_turnos_dni';
+const ACTIVE_LIMIT     = 50;
+const CLEANUP_INTERVAL = 2 * 60 * 1000;
+let   ultimaLimpieza   = 0;
 
 export async function POST(req: NextRequest) {
   const dni = req.cookies.get(COOKIE_NAME)?.value;
@@ -41,12 +43,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ redirect: '/turnos/reservar' });
   }
 
-  // Limpiar entradas inactivas (sin ping en 5+ minutos)
-  await supabaseAdmin
-    .from('cola')
-    .delete()
-    .eq('show_numero', showNumero)
-    .lt('ultimo_ping', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+  // Limpiar entradas inactivas — máximo una vez cada 2 min por instancia
+  const ahora = Date.now();
+  if (ahora - ultimaLimpieza > CLEANUP_INTERVAL) {
+    ultimaLimpieza = ahora;
+    await supabaseAdmin
+      .from('cola')
+      .delete()
+      .eq('show_numero', showNumero)
+      .lt('ultimo_ping', new Date(ahora - 5 * 60 * 1000).toISOString());
+  }
 
   // Insertar en la cola (si ya está, no reemplaza created_at)
   const { error: insertError } = await supabaseAdmin

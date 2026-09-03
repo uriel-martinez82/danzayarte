@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-const COOKIE_NAME  = 'dya_turnos_dni';
-const ACTIVE_LIMIT = 50;
+const COOKIE_NAME       = 'dya_turnos_dni';
+const ACTIVE_LIMIT      = 50;
+const CLEANUP_INTERVAL  = 2 * 60 * 1000; // 2 minutos entre limpiezas por instancia
+let   ultimaLimpieza    = 0;
 
 export async function GET(req: NextRequest) {
   const dni = req.cookies.get(COOKIE_NAME)?.value;
@@ -34,12 +36,16 @@ export async function GET(req: NextRequest) {
 
   if (reserva) return NextResponse.json({ redirect: '/turnos/reservar' });
 
-  // Limpiar inactivos
-  await supabaseAdmin
-    .from('cola')
-    .delete()
-    .eq('show_numero', showNumero)
-    .lt('ultimo_ping', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+  // Limpiar inactivos — máximo una vez cada 2 min por instancia
+  const ahora = Date.now();
+  if (ahora - ultimaLimpieza > CLEANUP_INTERVAL) {
+    ultimaLimpieza = ahora;
+    await supabaseAdmin
+      .from('cola')
+      .delete()
+      .eq('show_numero', showNumero)
+      .lt('ultimo_ping', new Date(ahora - 5 * 60 * 1000).toISOString());
+  }
 
   // Actualizar propio ping (esto es el heartbeat)
   await supabaseAdmin
