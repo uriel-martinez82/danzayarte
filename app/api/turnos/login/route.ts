@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     }, { status: 403 });
   }
 
-  const res = NextResponse.json({ ok: true, redirect: '/turnos/reservar' });
+  const res = NextResponse.json({ ok: true, redirect: '/cola' });
   res.cookies.set(COOKIE_NAME, dni.trim(), {
     httpOnly: true,
     sameSite: 'lax',

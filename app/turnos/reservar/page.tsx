@@ -71,6 +71,8 @@ export default function TurnosReservarPage() {
         throw new Error(data.error ?? 'Error al reservar.');
       }
       if (datos) setDatos({ ...datos, miReserva: selected });
+      // Liberar lugar en la cola para el siguiente
+      fetch('/api/cola/salir', { method: 'POST' }).catch(() => {});
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al reservar.');
     } finally {
