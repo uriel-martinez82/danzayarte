@@ -12,16 +12,17 @@ interface Reserva {
 }
 
 /* ─── Constants ─── */
-const HORAS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+const HORAS_SABADO  = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18]; // 9:00 a 18:00 — 12 turnos/hora
+const HORAS_DOMINGO = [9, 10, 11, 12, 13];                      // 9:00 a 13:00 — 20 turnos/hora
 
-const SHOW_DATES: Record<string, { fecha: string; dia: string; capacidad: number }[]> = {
+const SHOW_DATES: Record<string, { fecha: string; dia: string; capacidad: number; horas: number[] }[]> = {
   '1': [
-    { fecha: '2026-09-12', dia: 'Sábado 12 de septiembre', capacidad: 10 },
-    { fecha: '2026-09-13', dia: 'Domingo 13 de septiembre', capacidad: 20 },
+    { fecha: '2026-09-12', dia: 'Sábado 12 de septiembre',  capacidad: 12, horas: HORAS_SABADO  },
+    { fecha: '2026-09-13', dia: 'Domingo 13 de septiembre', capacidad: 20, horas: HORAS_DOMINGO },
   ],
   '2': [
-    { fecha: '2026-09-19', dia: 'Sábado 19 de septiembre', capacidad: 10 },
-    { fecha: '2026-09-20', dia: 'Domingo 20 de septiembre', capacidad: 20 },
+    { fecha: '2026-09-19', dia: 'Sábado 19 de septiembre',  capacidad: 12, horas: HORAS_SABADO  },
+    { fecha: '2026-09-20', dia: 'Domingo 20 de septiembre', capacidad: 20, horas: HORAS_DOMINGO },
   ],
 };
 
@@ -326,7 +327,7 @@ export default function AdminTurnosPage() {
               <div key={diaInfo.fecha} className="tn-dia-section">
                 <h2 className="tn-dia-titulo">📅 {diaInfo.dia}</h2>
                 <div className="tn-slots-list">
-                  {HORAS.map(hora => {
+                  {diaInfo.horas.map(hora => {
                     const todasLasReservas = reservasDia.filter(r => r.hora === hora);
                     const slotReservas = todasLasReservas.filter(r => {
                       if (!busqueda.trim()) return true;
