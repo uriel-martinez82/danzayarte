@@ -78,7 +78,7 @@ export default function TurnosPage() {
                   type={showPass ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="show2026"
+                  placeholder="password"
                   autoComplete="new-password"
                   className="pub-input"
                   style={{ paddingRight: 44 }}
