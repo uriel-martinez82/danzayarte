@@ -30,11 +30,11 @@ export async function GET(req: NextRequest) {
 
   if (!alumno) return NextResponse.json({ error: 'Alumno no encontrado.' }, { status: 404 });
 
-  const { data: configData } = await supabaseAdmin
-    .from('config')
-    .select('valor')
-    .eq('clave', 'show_activo')
-    .single();
+  // Leer show activo y config de multi-turno en paralelo
+  const [{ data: configData }, { data: multiConfig }] = await Promise.all([
+    supabaseAdmin.from('config').select('valor').eq('clave', 'show_activo').single(),
+    supabaseAdmin.from('config').select('valor').eq('clave', 'multi_turno_dnis').maybeSingle(),
+  ]);
 
   const showActivo = configData?.valor ?? '0';
   if (showActivo === '0') {
@@ -43,13 +43,25 @@ export async function GET(req: NextRequest) {
 
   const showNumero = parseInt(showActivo);
 
-  const { data: miReservaRows } = await supabaseAdmin
+  // Determinar si este DNI puede reservar múltiples turnos
+  const multiTurnoDnis = (multiConfig?.valor ?? '')
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+  const esMultiTurno = multiTurnoDnis.includes(dni);
+
+  // Obtener TODAS las reservas del alumno para este show
+  const { data: misReservasRows } = await supabaseAdmin
     .from('reservas')
     .select('fecha, hora')
     .eq('alumno_id', alumno.id)
-    .eq('show_numero', showNumero)
-    .limit(1);
-  const miReserva = miReservaRows?.[0] ?? null;
+    .eq('show_numero', showNumero);
+
+  const misReservas = misReservasRows ?? [];
+
+  // Para usuarios normales → miReserva activa la pantalla "turno confirmado"
+  // Para multi-turno → siempre null para no bloquear el selector de turnos
+  const miReserva = esMultiTurno ? null : (misReservas[0] ?? null);
 
   const dias = SHOW_DATES[showActivo];
   const fechas = dias.map(d => d.fecha);
@@ -78,8 +90,10 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     showNumero,
-    alumno: { nombre: alumno.nombre, apellido: alumno.apellido },
-    miReserva: miReserva ?? null,
+    alumno:      { nombre: alumno.nombre, apellido: alumno.apellido },
+    miReserva:   miReserva ?? null,
+    misReservas,
+    esMultiTurno,
     slots,
   });
 }
