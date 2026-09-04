@@ -6,10 +6,13 @@ import { PUBLIC_CSS } from '@/lib/public-page-css';
 
 interface SlotHora { hora: number; disponibles: number; }
 interface SlotDia  { fecha: string; dia: string; capacidad: number; horas: SlotHora[]; }
+interface MiReserva { fecha: string; hora: number; }
 interface DatosSlots {
   showNumero: number;
   alumno: { nombre: string; apellido: string };
-  miReserva: { fecha: string; hora: number } | null;
+  miReserva:   MiReserva | null;
+  misReservas: MiReserva[];
+  esMultiTurno: boolean;
   slots: SlotDia[];
 }
 
@@ -70,7 +73,14 @@ export default function TurnosReservarPage() {
         }
         throw new Error(data.error ?? 'Error al reservar.');
       }
-      if (datos) setDatos({ ...datos, miReserva: selected });
+      if (datos?.esMultiTurno) {
+        // Multi-turno: refrescar slots para mostrar la nueva reserva y permitir otra
+        setSelected(null);
+        await refrescarSlots();
+      } else {
+        // Normal: mostrar pantalla de confirmado
+        if (datos) setDatos({ ...datos, miReserva: selected });
+      }
       // Liberar lugar en la cola para el siguiente
       fetch('/api/cola/salir', { method: 'POST' }).catch(() => {});
     } catch (err: unknown) {
@@ -271,8 +281,32 @@ export default function TurnosReservarPage() {
             </div>
           )}
 
+          {/* Reservas ya hechas — solo visible para multi-turno */}
+          {datos?.esMultiTurno && datos.misReservas.length > 0 && (
+            <div style={{
+              background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
+              border: '1.5px solid #86efac', borderRadius: 14,
+              padding: '14px 18px', marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                🎟️ Turnos reservados
+              </div>
+              {datos.misReservas.map((r, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, fontSize: 14, color: '#15803d', fontWeight: 600, marginBottom: 4 }}>
+                  <span>✓</span>
+                  <span>{fmtFecha(r.fecha)} — {r.hora}:00 hs</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="pub-info">
-            <p>Elegí un día y horario. Una vez confirmado, el turno <strong>no se puede modificar</strong>.</p>
+            <p>
+              {datos?.esMultiTurno
+                ? 'Podés agregar más turnos seleccionando otro horario.'
+                : <>Elegí un día y horario. Una vez confirmado, el turno <strong>no se puede modificar</strong>.</>
+              }
+            </p>
           </div>
 
           {error && <div className="pub-error"><span>⚠</span> {error}</div>}
@@ -283,17 +317,20 @@ export default function TurnosReservarPage() {
               <div className="slots-list">
                 {dia.horas.map(slot => {
                   const isSelected = selected?.fecha === dia.fecha && selected?.hora === slot.hora;
-                  const isFull = slot.disponibles <= 0;
+                  const yaReservado = datos?.esMultiTurno &&
+                    (datos.misReservas ?? []).some(r => r.fecha === dia.fecha && r.hora === slot.hora);
+                  const isFull = slot.disponibles <= 0 && !yaReservado;
                   return (
                     <button
                       key={slot.hora}
-                      onClick={() => { if (!isFull) setSelected({ fecha: dia.fecha, hora: slot.hora }); }}
-                      disabled={isFull}
-                      className={`slot-btn ${isSelected ? 'selected' : ''} ${isFull ? 'full' : ''}`}
+                      onClick={() => { if (!isFull && !yaReservado) setSelected({ fecha: dia.fecha, hora: slot.hora }); }}
+                      disabled={isFull || yaReservado}
+                      className={`slot-btn ${isSelected ? 'selected' : ''} ${isFull ? 'full' : ''} ${yaReservado ? 'full' : ''}`}
+                      style={yaReservado ? { borderLeftColor: '#22c55e', opacity: 0.85 } : undefined}
                     >
                       <span className="slot-time">{slot.hora}:00 hs</span>
                       <span className="slot-label">
-                        {isFull ? 'Horario completo' : isSelected ? '✓ Seleccionado' : 'Seleccionar →'}
+                        {yaReservado ? '✓ Ya reservado' : isFull ? 'Horario completo' : isSelected ? '✓ Seleccionado' : 'Seleccionar →'}
                       </span>
                     </button>
                   );

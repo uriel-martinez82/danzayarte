@@ -1,39 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { enviarEmailTurno } from '@/lib/email-turno';
 
 const COOKIE_NAME = 'dya_turnos_dni';
 
-const SHOW_DATES: Record<string, { fecha: string; capacidad: number }[]> = {
+// Horas por tipo de día
+const HORAS_SABADO  = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18]; // 9:00 a 18:00 — 12 turnos/hora
+const HORAS_DOMINGO = [9, 10, 11, 12, 13];                      // 9:00 a 13:00 — 20 turnos/hora
+
+const SHOW_DATES: Record<string, { fecha: string; dia: string; capacidad: number; horas: number[] }[]> = {
   '1': [
-    { fecha: '2026-09-12', capacidad: 10 },
-    { fecha: '2026-09-13', capacidad: 20 },
+    { fecha: '2026-09-12', dia: 'Sábado 12 de septiembre',  capacidad: 12, horas: HORAS_SABADO  },
+    { fecha: '2026-09-13', dia: 'Domingo 13 de septiembre', capacidad: 20, horas: HORAS_DOMINGO },
   ],
   '2': [
-    { fecha: '2026-09-19', capacidad: 10 },
-    { fecha: '2026-09-20', capacidad: 20 },
+    { fecha: '2026-09-19', dia: 'Sábado 19 de septiembre',  capacidad: 12, horas: HORAS_SABADO  },
+    { fecha: '2026-09-20', dia: 'Domingo 20 de septiembre', capacidad: 20, horas: HORAS_DOMINGO },
   ],
 };
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const dni = req.cookies.get(COOKIE_NAME)?.value;
   if (!dni) return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
-
-  const { fecha, hora } = await req.json();
-
-  const { data: configData } = await supabaseAdmin
-    .from('config')
-    .select('valor')
-    .eq('clave', 'show_activo')
-    .single();
-
-  const showActivo = configData?.valor ?? '0';
-  if (showActivo === '0') return NextResponse.json({ error: 'Turnos no habilitados.' }, { status: 403 });
-
-  const showNumero = parseInt(showActivo);
-  const diaInfo = SHOW_DATES[showActivo]?.find(d => d.fecha === fecha);
-  if (!diaInfo) return NextResponse.json({ error: 'Fecha inválida para este show.' }, { status: 400 });
-  if (hora < 8 || hora > 17) return NextResponse.json({ error: 'Hora inválida.' }, { status: 400 });
 
   const { data: alumno } = await supabaseAdmin
     .from('alumnos')
@@ -43,83 +30,70 @@ export async function POST(req: NextRequest) {
 
   if (!alumno) return NextResponse.json({ error: 'Alumno no encontrado.' }, { status: 404 });
 
-  // Verificar que no tenga ya turno para este show (el admin puede asignar más de uno, el usuario no)
-  const { data: existingRows } = await supabaseAdmin
-    .from('reservas')
-    .select('id')
-    .eq('alumno_id', alumno.id)
-    .eq('show_numero', showNumero)
-    .limit(1);
+  // Leer show activo y config de multi-turno en paralelo
+  const [{ data: configData }, { data: multiConfig }] = await Promise.all([
+    supabaseAdmin.from('config').select('valor').eq('clave', 'show_activo').single(),
+    supabaseAdmin.from('config').select('valor').eq('clave', 'multi_turno_dnis').maybeSingle(),
+  ]);
 
-  if (existingRows && existingRows.length > 0) {
-    return NextResponse.json({ error: 'Ya tenés un turno reservado para este show.' }, { status: 409 });
+  const showActivo = configData?.valor ?? '0';
+  if (showActivo === '0') {
+    return NextResponse.json({ error: 'Los turnos no están habilitados en este momento.' }, { status: 403 });
   }
 
-  // Verificar disponibilidad del slot
-  const { count } = await supabaseAdmin
+  const showNumero = parseInt(showActivo);
+
+  // Determinar si este DNI puede reservar múltiples turnos
+  const multiTurnoDnis = (multiConfig?.valor ?? '')
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+  const esMultiTurno = multiTurnoDnis.includes(dni);
+
+  // Obtener TODAS las reservas del alumno para este show
+  const { data: misReservasRows } = await supabaseAdmin
     .from('reservas')
-    .select('id', { count: 'exact', head: true })
-    .eq('fecha', fecha)
-    .eq('hora', hora)
+    .select('fecha, hora')
+    .eq('alumno_id', alumno.id)
     .eq('show_numero', showNumero);
 
-  if ((count ?? 0) >= diaInfo.capacidad) {
-    return NextResponse.json({ error: 'Este turno ya no tiene lugares. Elegí otro horario.' }, { status: 409 });
-  }
+  const misReservas = misReservasRows ?? [];
 
-  // Insertar reserva (el trigger de DB garantiza atomicidad)
-  const { error: insertError } = await supabaseAdmin
+  // Para usuarios normales → miReserva activa la pantalla "turno confirmado"
+  // Para multi-turno → siempre null para no bloquear el selector de turnos
+  const miReserva = esMultiTurno ? null : (misReservas[0] ?? null);
+
+  const dias = SHOW_DATES[showActivo];
+  const fechas = dias.map(d => d.fecha);
+
+  const { data: reservas } = await supabaseAdmin
     .from('reservas')
-    .insert({ alumno_id: alumno.id, show_numero: showNumero, fecha, hora });
+    .select('fecha, hora')
+    .in('fecha', fechas)
+    .eq('show_numero', showNumero);
 
-  if (insertError) {
-    // Unique constraint: alumno ya tiene turno en este show
-    if (insertError.code === '23505') {
-      return NextResponse.json({ error: 'Ya tenés un turno reservado para este show.', slotLleno: false }, { status: 409 });
-    }
-    // Trigger: slot llegó a capacidad máxima entre el chequeo y el insert
-    if (insertError.message?.includes('Slot completo') || insertError.message?.includes('slot completo')) {
-      return NextResponse.json({ error: 'Este horario se llenó justo ahora. Elegí otro.', slotLleno: true }, { status: 409 });
-    }
-    console.error('[reservar] insertError:', insertError);
-    return NextResponse.json({ error: 'Error al reservar. Intentá de nuevo.' }, { status: 500 });
+  const conteo: Record<string, number> = {};
+  for (const r of reservas ?? []) {
+    const key = `${r.fecha}|${r.hora}`;
+    conteo[key] = (conteo[key] ?? 0) + 1;
   }
 
-  // Enviar email con PDF (no bloqueante — no falla la reserva si falla el mail)
-  try {
-    // Buscar email del responsable
-    const { data: autorizacion } = await supabaseAdmin
-      .from('autorizaciones')
-      .select('responsable_id')
-      .eq('alumno_id', alumno.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    let emailDestinatario: string | null = null;
-
-    if (autorizacion?.responsable_id) {
-      const { data: responsable } = await supabaseAdmin
-        .from('responsables')
-        .select('email')
-        .eq('id', autorizacion.responsable_id)
-        .single();
-      emailDestinatario = responsable?.email ?? null;
-    }
-
-    // Siempre enviamos — si no hay email de responsable, emailDestinatario queda null
-    // y en ese caso email-turno solo envía la copia interna
-    enviarEmailTurno({
-      emailDestinatario,
-      alumnoNombre:   alumno.nombre,
-      alumnoApellido: alumno.apellido,
-      showNumero,
-      fecha,
+  const slots = dias.map(dia => ({
+    fecha:    dia.fecha,
+    dia:      dia.dia,
+    capacidad: dia.capacidad,
+    horas:    dia.horas.map(hora => ({
       hora,
-    }).catch(err => console.error('Error enviando email turno:', err));
-  } catch (err) {
-    console.error('Error preparando email turno:', err);
-  }
+      disponibles: Math.max(0, dia.capacidad - (conteo[`${dia.fecha}|${hora}`] ?? 0)),
+    })),
+  }));
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    showNumero,
+    alumno:      { nombre: alumno.nombre, apellido: alumno.apellido },
+    miReserva:   miReserva ?? null,
+    misReservas,
+    esMultiTurno,
+    slots,
+  });
 }
