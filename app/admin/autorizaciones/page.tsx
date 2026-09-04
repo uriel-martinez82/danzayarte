@@ -1149,4 +1149,27 @@ const CSS = `
     .az-stat-num { font-size: 22px; }
     .az-stat-label { font-size: 10px; }
   }
+
+  /* ── iPad portrait (768–900px) ── */
+  @media (max-width: 900px) and (min-width: 701px) {
+    .az-header-actions { flex-wrap: wrap; gap: 7px; }
+  }
+
+  /* ── Pantallas táctiles (iPad, iPhone) ── */
+  @media (pointer: coarse) {
+    /* Botones delete/fusion/edit con área táctil mínima 44px */
+    .az-delete-btn, .az-fusion-btn, .az-edit-btn {
+      padding: 10px 14px; font-size: 15px; border-radius: 9px;
+    }
+    /* Botones del header */
+    .az-btn { padding: 12px 18px; font-size: 14px; }
+    /* Input de búsqueda — font-size 16px evita zoom automático en iOS */
+    input[type="text"], input[type="search"], input[type="number"] {
+      font-size: 16px !important;
+    }
+    /* Tabs de filtro más altos */
+    .az-tab { padding: 10px 16px; font-size: 13px; }
+    /* Filas de tabla más altas para tocar cómodo */
+    .az-row td { padding: 12px 10px; }
+  }
 `;

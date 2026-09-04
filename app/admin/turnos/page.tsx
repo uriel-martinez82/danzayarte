@@ -746,6 +746,33 @@ const CSS = `
     .tn-stat-num { font-size: 22px; }
     .tn-stat-label { font-size: 10px; }
   }
+
+  /* ── iPad portrait (768–900px) — entre mobile y desktop ── */
+  @media (max-width: 900px) and (min-width: 701px) {
+    .tn-filtros-bar { flex-wrap: wrap; }
+    .tn-search-wrap { width: 100%; min-width: unset; }
+    .tn-header-actions { flex-wrap: wrap; }
+  }
+
+  /* ── Pantallas táctiles (iPad, iPhone) — targets más grandes ── */
+  @media (pointer: coarse) {
+    /* Botones de ícono: de 28×28 a 44×44 */
+    .tn-icon-btn {
+      width: 44px; height: 44px; border-radius: 10px;
+    }
+    /* Botón "Asignar" por slot */
+    .tn-add-btn { padding: 9px 16px; font-size: 13px; }
+    /* Filas de reservas con más altura */
+    .tn-reserva-row { padding: 11px 12px; }
+    /* Tabs de vista */
+    .tn-vista-tab { padding: 12px 18px; font-size: 13px; }
+    /* Botones de config (Cerrado / Show 1 / Show 2) */
+    .tn-config-btn { padding: 12px 20px; font-size: 14px; }
+    /* Botones del header */
+    .tn-btn { padding: 12px 18px; font-size: 13px; }
+    /* Input de búsqueda */
+    .tn-search { padding: 13px 16px 13px 38px; font-size: 16px; /* 16px evita zoom en iOS */ }
+  }
 `;
 
 /* ─── Modal styles ─── */
