@@ -114,6 +114,7 @@ export default function AdminTurnosPage() {
   const [manualNombre,   setManualNombre]   = useState('');
   const [manualApellido, setManualApellido] = useState('');
   const [manualDni,      setManualDni]      = useState('');
+  const [exportando,     setExportando]     = useState(false);
 
   const cargarDatos = useCallback(async () => {
     setLoadingRes(true); setError(null);
@@ -216,6 +217,101 @@ export default function AdminTurnosPage() {
     setModalError(null); setModalLoading(false); setModoManual(false);
   }
 
+  async function exportarExcel() {
+    setExportando(true);
+    try {
+      // Cargar SheetJS desde CDN si no está cargado
+      if (!(window as unknown as Record<string, unknown>).XLSX) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          script.onload  = () => resolve();
+          script.onerror = () => reject(new Error('No se pudo cargar el generador de Excel.'));
+          document.head.appendChild(script);
+        });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const XLSX = (window as any).XLSX;
+      const wb   = XLSX.utils.book_new();
+
+      const SHOW_EXPORT: Record<string, { fecha: string; dia: string; horas: number[] }[]> = {
+        '1': [
+          { fecha: '2026-09-12', dia: 'Sábado 12 de septiembre',  horas: HORAS_SABADO  },
+          { fecha: '2026-09-13', dia: 'Domingo 13 de septiembre', horas: HORAS_DOMINGO },
+        ],
+        '2': [
+          { fecha: '2026-09-19', dia: 'Sábado 19 de septiembre',  horas: HORAS_SABADO  },
+          { fecha: '2026-09-20', dia: 'Domingo 20 de septiembre', horas: HORAS_DOMINGO },
+        ],
+      };
+      const SHOW_LABELS: Record<string, string> = {
+        '1': 'Show 1 — 12 y 13 Sep',
+        '2': 'Show 2 — 19 y 20 Sep',
+      };
+
+      ([1, 2] as const).forEach(showNum => {
+        const showStr = String(showNum);
+        const rows: (string | number | null)[][] = [];
+
+        // Título del sheet
+        rows.push([`DANZA Y ARTE — TURNOS ${SHOW_LABELS[showStr].toUpperCase()}`, null, null]);
+        rows.push([null, null, null]);
+
+        SHOW_EXPORT[showStr].forEach((diaInfo, diaIdx) => {
+          if (diaIdx > 0) rows.push([null, null, null]);
+
+          // Encabezado de día
+          rows.push([`── ${diaInfo.dia.toUpperCase()} ──`, null, null]);
+          rows.push([null, null, null]);
+
+          let hayAlgunaReserva = false;
+          diaInfo.horas.forEach(hora => {
+            const slotReservas = reservas.filter(
+              r => r.show_numero === showNum && r.fecha === diaInfo.fecha && r.hora === hora
+            );
+            if (slotReservas.length === 0) return;
+            hayAlgunaReserva = true;
+
+            // Encabezado de horario
+            rows.push([`${hora}:00 hs (${slotReservas.length} reserva${slotReservas.length !== 1 ? 's' : ''})`, null, null]);
+
+            // Cabeceras de columnas
+            rows.push(['Horario', 'Apellido y Nombre', 'DNI']);
+
+            // Datos
+            slotReservas.forEach(r => {
+              rows.push([
+                `${hora}:00`,
+                `${r.alumnos?.apellido ?? ''}, ${r.alumnos?.nombre ?? ''}`,
+                r.alumnos?.dni ?? '',
+              ]);
+            });
+
+            rows.push([null, null, null]); // separador
+          });
+
+          if (!hayAlgunaReserva) {
+            rows.push(['(Sin reservas para este día)', null, null]);
+            rows.push([null, null, null]);
+          }
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        // Anchos de columna
+        ws['!cols'] = [{ wch: 48 }, { wch: 36 }, { wch: 14 }];
+
+        XLSX.utils.book_append_sheet(wb, ws, SHOW_LABELS[showStr].substring(0, 31));
+      });
+
+      const fecha = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `turnos-danza-arte-${fecha}.xlsx`);
+    } catch (e) {
+      alert('Error al exportar: ' + (e instanceof Error ? e.message : 'Error desconocido'));
+    } finally {
+      setExportando(false);
+    }
+  }
+
   const dias = SHOW_DATES[vistaShow] ?? [];
   const show1Count = reservas.filter(r => r.show_numero === 1).length;
   const show2Count = reservas.filter(r => r.show_numero === 2).length;
@@ -242,6 +338,14 @@ export default function AdminTurnosPage() {
           <div className="tn-header-actions">
             <a href="/admin" className="tn-btn tn-btn-ghost" style={{ textDecoration: 'none' }}>← Inicio</a>
             <button onClick={cargarDatos} disabled={loadingRes} className="tn-btn tn-btn-primary">↻ Actualizar</button>
+            <button
+              onClick={exportarExcel}
+              disabled={exportando || loadingRes || reservas.length === 0}
+              className="tn-btn tn-btn-export"
+              title="Descargar lista de turnos en Excel"
+            >
+              {exportando ? '⏳ Generando…' : '📥 Excel'}
+            </button>
             <button onClick={async () => { await fetch('/api/admin/login', { method: 'DELETE' }); window.location.href = '/admin/login'; }} className="tn-btn tn-btn-danger">Salir</button>
           </div>
         </div>
@@ -540,6 +644,8 @@ const CSS = `
   .tn-btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
   .tn-btn-danger  { background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(248,113,113,0.25); }
   .tn-btn-danger:hover:not(:disabled) { background: rgba(220,38,38,0.2); }
+  .tn-btn-export  { background: rgba(5,150,105,0.15); color: #34d399; border-color: rgba(52,211,153,0.3); }
+  .tn-btn-export:hover:not(:disabled) { background: rgba(5,150,105,0.25); box-shadow: 0 4px 16px rgba(52,211,153,0.2); }
 
   /* Config panel */
   .tn-config-panel {
