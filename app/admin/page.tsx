@@ -329,6 +329,7 @@ const CSS = `
   .dya-share-card.accent-green:hover  { border-color: rgba(52,211,153,0.35);  box-shadow: 0 14px 40px rgba(52,211,153,0.12),  0 4px 24px rgba(0,0,0,0.25); }
   .dya-share-card.accent-teal:hover   { border-color: rgba(45,212,191,0.35);  box-shadow: 0 14px 40px rgba(45,212,191,0.12),  0 4px 24px rgba(0,0,0,0.25); }
   .dya-share-card.accent-amber:hover  { border-color: rgba(251,191,36,0.35);  box-shadow: 0 14px 40px rgba(251,191,36,0.12),  0 4px 24px rgba(0,0,0,0.25); }
+  .dya-share-card.accent-violet:hover { border-color: rgba(167,139,250,0.35); box-shadow: 0 14px 40px rgba(167,139,250,0.12), 0 4px 24px rgba(0,0,0,0.25); }
   .dya-share-card.accent-purple:hover { border-color: rgba(192,132,252,0.35); box-shadow: 0 14px 40px rgba(192,132,252,0.12), 0 4px 24px rgba(0,0,0,0.25); }
 
   /* Typography */
@@ -380,6 +381,7 @@ const CSS = `
   .ver-green  { background: linear-gradient(135deg, rgba(52,211,153,0.25),  rgba(52,211,153,0.1));  border-color: rgba(52,211,153,0.3); }
   .ver-teal   { background: linear-gradient(135deg, rgba(45,212,191,0.25),  rgba(45,212,191,0.1));  border-color: rgba(45,212,191,0.3); }
   .ver-amber  { background: linear-gradient(135deg, rgba(251,191,36,0.25),  rgba(251,191,36,0.1));  border-color: rgba(251,191,36,0.3); }
+  .ver-violet { background: linear-gradient(135deg, rgba(167,139,250,0.25), rgba(167,139,250,0.1)); border-color: rgba(167,139,250,0.3); }
   .ver-purple { background: linear-gradient(135deg, rgba(192,132,252,0.25), rgba(192,132,252,0.1)); border-color: rgba(192,132,252,0.3); }
   .dya-btn-ver:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
 
