@@ -14,11 +14,20 @@ interface AutorizacionEnsayo {
   responsable_email: string;
 }
 
+function pdfUrl(a: AutorizacionEnsayo) {
+  const p = new URLSearchParams({
+    alumno_nombre: a.alumno_nombre, alumno_apellido: a.alumno_apellido, alumno_dni: a.alumno_dni,
+    responsable_nombre: a.responsable_nombre, responsable_apellido: a.responsable_apellido,
+    responsable_dni: a.responsable_dni,
+  });
+  return `/api/admin/autorizaciones-ensayo/pdf?${p}`;
+}
+
 export default function AutorizacionesEnsayoPage() {
-  const [datos,    setDatos]    = useState<AutorizacionEnsayo[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
-  const [busqueda, setBusqueda] = useState('');
+  const [datos,     setDatos]     = useState<AutorizacionEnsayo[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+  const [busqueda,  setBusqueda]  = useState('');
   const [countdown, setCountdown] = useState(30);
   const [exportando, setExportando] = useState(false);
 
@@ -38,13 +47,9 @@ export default function AutorizacionesEnsayoPage() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Auto-refresh countdown
   useEffect(() => {
     const tick = setInterval(() => {
-      setCountdown(c => {
-        if (c <= 1) { cargar(); return 30; }
-        return c - 1;
-      });
+      setCountdown(c => { if (c <= 1) { cargar(); return 30; } return c - 1; });
     }, 1000);
     return () => clearInterval(tick);
   }, [cargar]);
@@ -52,14 +57,9 @@ export default function AutorizacionesEnsayoPage() {
   const filtrados = datos.filter(a => {
     const q = busqueda.toLowerCase().trim();
     if (!q) return true;
-    return (
-      a.alumno_nombre.toLowerCase().includes(q) ||
-      a.alumno_apellido.toLowerCase().includes(q) ||
-      a.alumno_dni.toLowerCase().includes(q) ||
-      a.responsable_nombre.toLowerCase().includes(q) ||
-      a.responsable_apellido.toLowerCase().includes(q) ||
-      a.responsable_email.toLowerCase().includes(q)
-    );
+    return [a.alumno_nombre, a.alumno_apellido, a.alumno_dni,
+            a.responsable_nombre, a.responsable_apellido, a.responsable_email]
+      .some(v => v.toLowerCase().includes(q));
   });
 
   async function exportarExcel() {
@@ -69,68 +69,54 @@ export default function AutorizacionesEnsayoPage() {
         await new Promise<void>((resolve, reject) => {
           const s = document.createElement('script');
           s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error('No se pudo cargar XLSX.'));
+          s.onload = () => resolve(); s.onerror = () => reject(new Error('No se pudo cargar XLSX.'));
           document.head.appendChild(s);
         });
       }
       const XLSX = (window as any).XLSX;
       const wb = XLSX.utils.book_new();
-
       const rows = [
-        ['Fecha', 'Alumno/a Apellido', 'Alumno/a Nombre', 'DNI Alumno/a',
-         'Resp. Apellido', 'Resp. Nombre', 'DNI Responsable', 'Email Responsable'],
-        ...filtrados.map(a => [
-          new Date(a.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        ['#', 'Fecha', 'Apellido Alumno/a', 'Nombre Alumno/a', 'DNI Alumno/a',
+         'Apellido Responsable', 'Nombre Responsable', 'DNI Responsable', 'Email Responsable'],
+        ...filtrados.map((a, i) => [
+          filtrados.length - i,
+          new Date(a.created_at).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }),
           a.alumno_apellido, a.alumno_nombre, a.alumno_dni,
           a.responsable_apellido, a.responsable_nombre, a.responsable_dni, a.responsable_email,
         ]),
       ];
-
       const ws = XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols'] = [
-        { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 14 },
-        { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 30 },
-      ];
-      XLSX.utils.book_append_sheet(wb, ws, 'Autorizaciones Ensayo');
-
-      const fecha = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `autorizaciones-ensayo-${fecha}.xlsx`);
+      ws['!cols'] = [{ wch:5 },{ wch:18 },{ wch:20 },{ wch:20 },{ wch:13 },{ wch:20 },{ wch:20 },{ wch:13 },{ wch:30 }];
+      XLSX.utils.book_append_sheet(wb, ws, 'Ensayo General');
+      XLSX.writeFile(wb, `autorizaciones-ensayo-${new Date().toISOString().slice(0,10)}.xlsx`);
     } catch (e) {
       alert('Error al exportar: ' + (e instanceof Error ? e.message : 'Error'));
-    } finally {
-      setExportando(false);
-    }
+    } finally { setExportando(false); }
   }
 
-  function formatFecha(iso: string) {
-    return new Date(iso).toLocaleDateString('es-AR', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
+  function fmt(iso: string) {
+    return new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
   }
 
   return (
     <>
       <style>{CSS}</style>
       <div className="ae-page">
-        <div className="ae-orb ae-orb-1" />
-        <div className="ae-orb ae-orb-2" />
-
-        <div className="ae-container">
+        <div className="ae-orb ae-orb-1" /><div className="ae-orb ae-orb-2" />
+        <div className="ae-wrap">
 
           {/* Header */}
           <div className="ae-header">
             <div>
-              <a href="/admin" className="ae-back">← Panel</a>
-              <h1 className="ae-title">Autorizaciones <span className="ae-accent">Ensayo General</span></h1>
+              <a href="/admin" className="ae-back">← Panel admin</a>
+              <h1 className="ae-title">Autorizaciones <span className="ae-hl">Ensayo General</span></h1>
               <p className="ae-sub">Teatro Astral — 14 y/o 15 de noviembre del 2026</p>
             </div>
-            <div className="ae-header-actions">
-              <button onClick={exportarExcel} disabled={exportando || filtrados.length === 0} className="ae-btn ae-btn-export">
+            <div className="ae-hactions">
+              <button onClick={exportarExcel} disabled={exportando || filtrados.length === 0} className="ae-btn ae-btn-xl">
                 {exportando ? '⏳' : '📥'} Excel
               </button>
-              <button onClick={cargar} disabled={loading} className="ae-btn ae-btn-refresh">
+              <button onClick={cargar} disabled={loading} className="ae-btn ae-btn-ref">
                 {loading ? '…' : `↻ ${countdown}s`}
               </button>
             </div>
@@ -138,66 +124,61 @@ export default function AutorizacionesEnsayoPage() {
 
           {/* Stats */}
           <div className="ae-stats">
-            <div className="ae-stat-card">
-              <div className="ae-stat-num">{datos.length}</div>
-              <div className="ae-stat-label">Total registradas</div>
-            </div>
-            <div className="ae-stat-card">
-              <div className="ae-stat-num ae-accent">{filtrados.length}</div>
-              <div className="ae-stat-label">Mostrando</div>
-            </div>
+            <div className="ae-stat"><span className="ae-snum">{datos.length}</span><span className="ae-slbl">Total</span></div>
+            <div className="ae-stat"><span className="ae-snum ae-hl">{filtrados.length}</span><span className="ae-slbl">Mostrando</span></div>
           </div>
 
           {/* Search */}
-          <div className="ae-search-wrap">
-            <span className="ae-search-icon">🔍</span>
-            <input
-              className="ae-search"
-              type="text"
-              placeholder="Buscar por nombre, apellido, DNI o email…"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-            />
-            {busqueda && (
-              <button className="ae-search-clear" onClick={() => setBusqueda('')}>✕</button>
-            )}
+          <div className="ae-sbox">
+            <span className="ae-sicon">🔍</span>
+            <input className="ae-sinput" type="text" placeholder="Buscar por nombre, apellido, DNI o email…"
+              value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+            {busqueda && <button className="ae-sclear" onClick={() => setBusqueda('')}>✕</button>}
           </div>
 
-          {/* Error */}
           {error && <div className="ae-error">⚠ {error}</div>}
 
-          {/* Lista */}
+          {/* Tabla */}
           {loading && datos.length === 0 ? (
             <div className="ae-empty">Cargando…</div>
           ) : filtrados.length === 0 ? (
-            <div className="ae-empty">{busqueda ? 'Sin resultados para esa búsqueda.' : 'No hay autorizaciones aún.'}</div>
+            <div className="ae-empty">{busqueda ? 'Sin resultados.' : 'No hay autorizaciones aún.'}</div>
           ) : (
-            <div className="ae-list">
-              {filtrados.map((a, i) => (
-                <div key={a.id} className="ae-card" style={{ animationDelay: `${Math.min(i * 0.04, 0.4)}s` }}>
-                  <div className="ae-card-top">
-                    <div className="ae-num">#{datos.length - datos.findIndex(d => d.id === a.id)}</div>
-                    <div className="ae-fecha">{formatFecha(a.created_at)}</div>
-                  </div>
-                  <div className="ae-card-body">
-                    <div className="ae-section">
-                      <div className="ae-section-label">👧 Alumno/a</div>
-                      <div className="ae-name">{a.alumno_apellido}, {a.alumno_nombre}</div>
-                      <div className="ae-dni">DNI {a.alumno_dni}</div>
-                    </div>
-                    <div className="ae-divider" />
-                    <div className="ae-section">
-                      <div className="ae-section-label">👤 Responsable</div>
-                      <div className="ae-name">{a.responsable_apellido}, {a.responsable_nombre}</div>
-                      <div className="ae-dni">DNI {a.responsable_dni}</div>
-                      <div className="ae-email">{a.responsable_email}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="ae-table-wrap">
+              <table className="ae-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Alumno/a</th>
+                    <th>DNI alumno/a</th>
+                    <th>Responsable</th>
+                    <th>DNI resp.</th>
+                    <th>Email</th>
+                    <th>PDF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtrados.map((a, i) => (
+                    <tr key={a.id}>
+                      <td className="ae-td-num">{filtrados.length - i}</td>
+                      <td className="ae-td-fecha">{fmt(a.created_at)}</td>
+                      <td><span className="ae-nombre">{a.alumno_apellido}, {a.alumno_nombre}</span></td>
+                      <td className="ae-td-dni">{a.alumno_dni}</td>
+                      <td><span className="ae-nombre">{a.responsable_apellido}, {a.responsable_nombre}</span></td>
+                      <td className="ae-td-dni">{a.responsable_dni}</td>
+                      <td className="ae-td-email">{a.responsable_email}</td>
+                      <td>
+                        <a href={pdfUrl(a)} target="_blank" rel="noopener noreferrer" className="ae-pdf-btn" title="Ver PDF">
+                          📄 PDF
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-
         </div>
       </div>
     </>
@@ -205,178 +186,115 @@ export default function AutorizacionesEnsayoPage() {
 }
 
 const CSS = `
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes orbFloat {
-    0%, 100% { transform: translate(0,0) scale(1); }
-    50%       { transform: translate(20px,-15px) scale(1.05); }
-  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes orb1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(24px,-18px)} }
+  @keyframes orb2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-18px,14px)} }
 
   .ae-page {
-    min-height: 100vh;
-    background: linear-gradient(135deg, #0d0b1e 0%, #1a1040 35%, #0f1e3d 65%, #1a0d2e 100%);
-    font-family: system-ui, -apple-system, sans-serif;
-    padding: clamp(20px, 4vw, 48px) 16px;
-    position: relative; overflow-x: hidden;
+    min-height:100vh;
+    background:linear-gradient(135deg,#0d0b1e 0%,#1a1040 35%,#0f1e3d 65%,#1a0d2e 100%);
+    font-family:system-ui,-apple-system,sans-serif;
+    padding:clamp(16px,4vw,44px) 12px;
+    position:relative; overflow-x:hidden;
   }
-  .ae-orb {
-    position: fixed; border-radius: 50%;
-    filter: blur(80px); pointer-events: none; z-index: 0;
-  }
-  .ae-orb-1 {
-    width: 500px; height: 500px; top: -120px; left: -150px;
-    background: radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%);
-    animation: orbFloat 18s ease-in-out infinite;
-  }
-  .ae-orb-2 {
-    width: 400px; height: 400px; bottom: -80px; right: -100px;
-    background: radial-gradient(circle, rgba(167,139,250,0.14) 0%, transparent 70%);
-    animation: orbFloat 22s ease-in-out infinite reverse;
-  }
+  .ae-orb { position:fixed; border-radius:50%; filter:blur(80px); pointer-events:none; z-index:0; }
+  .ae-orb-1 { width:500px;height:500px;top:-120px;left:-150px;
+    background:radial-gradient(circle,rgba(139,92,246,.18) 0%,transparent 70%);
+    animation:orb1 18s ease-in-out infinite; }
+  .ae-orb-2 { width:400px;height:400px;bottom:-80px;right:-100px;
+    background:radial-gradient(circle,rgba(167,139,250,.14) 0%,transparent 70%);
+    animation:orb2 22s ease-in-out infinite; }
 
-  .ae-container {
-    width: 100%; max-width: 740px; margin: 0 auto;
-    position: relative; z-index: 1;
-  }
+  .ae-wrap { width:100%; max-width:1100px; margin:0 auto; position:relative; z-index:1; }
 
-  .ae-header {
-    display: flex; align-items: flex-start; justify-content: space-between;
-    gap: 16px; margin-bottom: 28px; flex-wrap: wrap;
-    animation: fadeUp 0.5s ease both;
-  }
-  .ae-back {
-    display: inline-block; font-size: 13px; font-weight: 700;
-    color: rgba(255,255,255,0.4); text-decoration: none;
-    margin-bottom: 8px; transition: color 0.15s;
-  }
-  .ae-back:hover { color: rgba(255,255,255,0.75); }
-  .ae-title {
-    margin: 0 0 4px; font-size: clamp(20px, 4vw, 26px);
-    font-weight: 900; color: #fff; letter-spacing: -0.5px;
-  }
-  .ae-accent { color: #a78bfa; }
-  .ae-sub { margin: 0; font-size: 13px; color: rgba(255,255,255,0.35); }
+  .ae-header { display:flex; align-items:flex-start; justify-content:space-between;
+    gap:14px; margin-bottom:22px; flex-wrap:wrap; animation:fadeUp .5s ease both; }
+  .ae-back { display:inline-block; font-size:13px; font-weight:700;
+    color:rgba(255,255,255,.4); text-decoration:none; margin-bottom:6px;
+    transition:color .15s; }
+  .ae-back:hover { color:rgba(255,255,255,.75); }
+  .ae-title { margin:0 0 4px; font-size:clamp(18px,4vw,24px); font-weight:900;
+    color:#fff; letter-spacing:-.5px; }
+  .ae-hl { color:#a78bfa; }
+  .ae-sub { margin:0; font-size:13px; color:rgba(255,255,255,.35); }
+  .ae-hactions { display:flex; gap:8px; align-items:center; flex-shrink:0; }
 
-  .ae-header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .ae-btn { padding:9px 16px; font-size:13px; font-weight:700; border-radius:10px;
+    border:1.5px solid; cursor:pointer; transition:transform .15s,opacity .15s; white-space:nowrap; }
+  .ae-btn:hover:not(:disabled) { transform:translateY(-2px); }
+  .ae-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .ae-btn-xl { background:rgba(5,150,105,.15); color:#34d399; border-color:rgba(52,211,153,.3); }
+  .ae-btn-ref { background:rgba(167,139,250,.1); color:#a78bfa; border-color:rgba(167,139,250,.25);
+    font-variant-numeric:tabular-nums; }
 
-  .ae-btn {
-    padding: 9px 16px; font-size: 13px; font-weight: 700;
-    border-radius: 10px; border: 1.5px solid; cursor: pointer;
-    transition: transform 0.15s, opacity 0.15s;
-    white-space: nowrap;
-  }
-  .ae-btn:hover:not(:disabled) { transform: translateY(-2px); }
-  .ae-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .ae-btn-export {
-    background: rgba(5,150,105,0.15); color: #34d399;
-    border-color: rgba(52,211,153,0.3);
-  }
-  .ae-btn-refresh {
-    background: rgba(167,139,250,0.1); color: #a78bfa;
-    border-color: rgba(167,139,250,0.25);
-    font-variant-numeric: tabular-nums;
-  }
+  .ae-stats { display:flex; gap:10px; margin-bottom:16px; animation:fadeUp .5s .05s ease both; }
+  .ae-stat { flex:0 0 auto; background:rgba(255,255,255,.04); border:1.5px solid rgba(255,255,255,.08);
+    border-radius:12px; padding:12px 20px; display:flex; align-items:center; gap:10px; }
+  .ae-snum { font-size:26px; font-weight:900; color:#fff; }
+  .ae-slbl { font-size:11px; color:rgba(255,255,255,.3); }
 
-  .ae-stats {
-    display: flex; gap: 12px; margin-bottom: 20px;
-    animation: fadeUp 0.5s 0.05s ease both;
-  }
-  .ae-stat-card {
-    flex: 1; background: rgba(255,255,255,0.04);
-    border: 1.5px solid rgba(255,255,255,0.08);
-    border-radius: 14px; padding: 14px 18px;
-    backdrop-filter: blur(20px);
-  }
-  .ae-stat-num { font-size: 28px; font-weight: 900; color: #fff; }
-  .ae-stat-label { font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 2px; }
+  .ae-sbox { position:relative; margin-bottom:16px; animation:fadeUp .5s .1s ease both; }
+  .ae-sicon { position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none; }
+  .ae-sinput { width:100%; padding:11px 36px 11px 38px; background:rgba(255,255,255,.05);
+    border:1.5px solid rgba(255,255,255,.1); border-radius:12px; color:#fff; font-size:14px;
+    outline:none; box-sizing:border-box; transition:border-color .15s,background .15s; }
+  .ae-sinput::placeholder { color:rgba(255,255,255,.25); }
+  .ae-sinput:focus { border-color:rgba(167,139,250,.5); background:rgba(167,139,250,.07); }
+  .ae-sclear { position:absolute;right:11px;top:50%;transform:translateY(-50%);
+    background:none;border:none;color:rgba(255,255,255,.4);font-size:14px;cursor:pointer;padding:4px 6px; }
+  .ae-sclear:hover { color:#fff; }
 
-  .ae-search-wrap {
-    position: relative; margin-bottom: 20px;
-    animation: fadeUp 0.5s 0.1s ease both;
-  }
-  .ae-search-icon {
-    position: absolute; left: 14px; top: 50%;
-    transform: translateY(-50%); font-size: 15px; pointer-events: none;
-  }
-  .ae-search {
-    width: 100%; padding: 12px 40px 12px 40px;
-    background: rgba(255,255,255,0.05);
-    border: 1.5px solid rgba(255,255,255,0.1);
-    border-radius: 12px; color: #fff; font-size: 14px;
-    outline: none; box-sizing: border-box;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  .ae-search::placeholder { color: rgba(255,255,255,0.25); }
-  .ae-search:focus { border-color: rgba(167,139,250,0.5); background: rgba(167,139,250,0.07); }
-  .ae-search-clear {
-    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; color: rgba(255,255,255,0.4);
-    font-size: 14px; cursor: pointer; padding: 4px 6px;
-  }
-  .ae-search-clear:hover { color: #fff; }
+  .ae-error { background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+    color:#fca5a5;border-radius:10px;padding:12px 16px;font-size:14px;margin-bottom:14px; }
+  .ae-empty { text-align:center;color:rgba(255,255,255,.3);font-size:15px;padding:48px 0; }
 
-  .ae-error {
-    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
-    color: #fca5a5; border-radius: 10px; padding: 12px 16px;
-    font-size: 14px; margin-bottom: 16px;
+  /* Tabla */
+  .ae-table-wrap {
+    overflow-x:auto;
+    border-radius:16px;
+    border:1.5px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.03);
+    backdrop-filter:blur(20px);
+    animation:fadeUp .4s .15s ease both;
   }
-  .ae-empty {
-    text-align: center; color: rgba(255,255,255,0.3);
-    font-size: 15px; padding: 48px 0;
+  .ae-table {
+    width:100%; border-collapse:collapse;
+    font-size:13px;
   }
+  .ae-table thead tr {
+    border-bottom:1px solid rgba(255,255,255,.1);
+  }
+  .ae-table th {
+    padding:13px 14px; text-align:left;
+    font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
+    color:rgba(255,255,255,.35); white-space:nowrap;
+  }
+  .ae-table tbody tr {
+    border-bottom:1px solid rgba(255,255,255,.05);
+    transition:background .15s;
+  }
+  .ae-table tbody tr:last-child { border-bottom:none; }
+  .ae-table tbody tr:hover { background:rgba(167,139,250,.07); }
+  .ae-table td { padding:12px 14px; vertical-align:middle; }
 
-  .ae-list { display: flex; flex-direction: column; gap: 10px; }
+  .ae-td-num   { color:rgba(167,139,250,.5); font-size:11px; font-weight:800; width:36px; }
+  .ae-td-fecha { color:rgba(255,255,255,.4); font-size:11px; white-space:nowrap; }
+  .ae-td-dni   { color:rgba(255,255,255,.55); font-size:12px; white-space:nowrap; }
+  .ae-td-email { color:#a78bfa; font-size:12px; word-break:break-all; }
+  .ae-nombre   { color:#fff; font-weight:600; }
 
-  .ae-card {
-    background: rgba(255,255,255,0.04);
-    border: 1.5px solid rgba(255,255,255,0.08);
-    border-radius: 16px; padding: 18px 20px;
-    backdrop-filter: blur(20px);
-    animation: fadeUp 0.4s ease both;
-    transition: border-color 0.2s, background 0.2s;
+  .ae-pdf-btn {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700;
+    background:rgba(124,58,237,.15); color:#a78bfa;
+    border:1px solid rgba(124,58,237,.3);
+    text-decoration:none; white-space:nowrap;
+    transition:background .15s, transform .15s;
   }
-  .ae-card:hover {
-    border-color: rgba(167,139,250,0.3);
-    background: rgba(167,139,250,0.06);
-  }
+  .ae-pdf-btn:hover { background:rgba(124,58,237,.28); transform:translateY(-1px); }
 
-  .ae-card-top {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 14px;
-  }
-  .ae-num {
-    font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
-    color: rgba(167,139,250,0.6);
-  }
-  .ae-fecha { font-size: 11px; color: rgba(255,255,255,0.3); }
-
-  .ae-card-body { display: flex; gap: 20px; flex-wrap: wrap; }
-  .ae-section { flex: 1; min-width: 200px; }
-  .ae-section-label {
-    font-size: 10px; font-weight: 800; letter-spacing: 0.1em;
-    text-transform: uppercase; color: rgba(255,255,255,0.3);
-    margin-bottom: 6px;
-  }
-  .ae-name { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 3px; }
-  .ae-dni  { font-size: 12px; color: rgba(255,255,255,0.45); margin-bottom: 2px; }
-  .ae-email {
-    font-size: 12px; color: #a78bfa; margin-top: 4px;
-    word-break: break-all;
-  }
-
-  .ae-divider {
-    width: 1px; background: rgba(255,255,255,0.08);
-    flex-shrink: 0; margin: 0 4px;
-  }
-
-  @media (max-width: 600px) {
-    .ae-divider { display: none; }
-    .ae-section { min-width: 100%; }
-    .ae-card-body { gap: 14px; }
-    .ae-card { padding: 14px 16px; }
-    .ae-stats { gap: 8px; }
-    .ae-stat-num { font-size: 24px; }
+  @media(max-width:700px) {
+    .ae-table th, .ae-table td { padding:10px 10px; }
+    .ae-td-email { max-width:120px; }
   }
 `;

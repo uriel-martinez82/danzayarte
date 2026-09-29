@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { enviarEmailAutorizacionEnsayo } from '@/lib/email-ensayo';
 
 interface AlumnoInput      { nombre: string; apellido: string; dni: string; }
 interface ResponsableInput { nombre: string; apellido: string; dni: string; email: string; }
@@ -29,6 +30,12 @@ export async function POST(req: NextRequest) {
       });
 
     if (insertError) throw new Error(`Error al guardar: ${insertError.message}`);
+
+    // Enviar emails con PDF adjunto (no bloquea la respuesta si falla)
+    await enviarEmailAutorizacionEnsayo(
+      { nombre: alumno.nombre.trim(), apellido: alumno.apellido.trim(), dni: alumno.dni.trim() },
+      { nombre: responsable.nombre.trim(), apellido: responsable.apellido.trim(), dni: responsable.dni.trim(), email: responsable.email.trim().toLowerCase() },
+    );
 
     return NextResponse.json({ success: true });
 
